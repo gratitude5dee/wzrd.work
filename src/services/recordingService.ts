@@ -159,7 +159,7 @@ export function useRecordingStatus(id: string) {
     enabled: !!id,
     refetchInterval: (data) => {
       // Poll every 5 seconds if status is pending or processing
-      if (data && (data.status === 'pending' || data.status === 'processing')) {
+      if (data && ('status' in data) && (data.status === 'pending' || data.status === 'processing')) {
         return 5000;
       }
       return false;

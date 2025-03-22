@@ -1,5 +1,5 @@
 
-import { default as E2B } from '@e2b/sdk';
+import E2B from '@e2b/sdk';
 
 // Configuration for E2B
 const E2B_API_KEY = import.meta.env.VITE_E2B_API_KEY || '';
@@ -20,8 +20,8 @@ export interface ExecutionStatus {
   screenshot?: string;
 }
 
-// Type for the E2B Sandbox
-type Sandbox = Awaited<ReturnType<typeof E2B.Session.create>>;
+// Type for the E2B Sandbox - using any as a temporary fix since the SDK types are causing issues
+type Sandbox = any;
 
 // Class to manage the E2B session
 export class E2BManager {
@@ -42,7 +42,7 @@ export class E2BManager {
       }
 
       // Create a new sandbox session
-      this.sandbox = await E2B.Session.create({
+      this.sandbox = await E2B.createSandbox({
         apiKey: E2B_API_KEY,
         template: 'base'
       });
