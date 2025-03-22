@@ -66,8 +66,8 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
   
   const {
     currentCheckpoint,
-    showCheckpoint: displayCheckpointValue,
     isCheckpointOpen,
+    showCheckpoint: displayCheckpointValue,
     generateCheckpointsFromAction,
     displayCheckpoint: showCheckpointInternal,
     dismissCheckpoint,
@@ -87,10 +87,20 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
   } = useActionExecution();
 
   const {
+    actionData,
+    userData,
+    usagePatterns,
+    isLoading: analyticsLoading,
+    error: analyticsError,
+    fetchActionAnalytics,
+    fetchUserAnalytics,
+    fetchUsagePatterns,
+    getRelatedActions,
+    // Add these missing properties from useActionAnalytics
     getActionMetrics,
     isSuccessDialogOpen,
     currentSummary,
-    showSuccessDialog: showSuccessDialogInternal,
+    showSuccessDialog,
     closeSuccessDialog
   } = useActionAnalytics();
 
@@ -107,7 +117,7 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
   // Function to show a checkpoint with options
   const showCheckpoint = useCallback((
     options: CheckpointOptions,
-    handlers: CheckpointHandlers
+    handlers?: CheckpointHandlers
   ) => {
     const checkpoint: Checkpoint = {
       id: `checkpoint-${Date.now()}`,
@@ -122,39 +132,21 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
     // Show the checkpoint
     showCheckpointInternal(checkpoint);
     
-    // Override the handlers
-    const originalHandleProceed = handleProceed;
-    const originalHandleModify = handleModify;
-    const originalHandleCancel = handleCancel;
+    // If handlers are provided, override the default ones
+    if (handlers) {
+      // This is a placeholder for actual implementation
+      // In a real scenario, we would need to store these handlers and use them
+      // when the checkpoint is acted upon
+      const originalHandleProceed = handleProceed;
+      const originalHandleModify = handleModify;
+      const originalHandleCancel = handleCancel;
+      
+      // TODO: In a real implementation, we would override these handlers
+      // but the current implementation doesn't support dynamic handler replacement
+    }
     
-    // Save original handlers and set temporary ones
-    const tempHandleProceed = () => {
-      handlers.onProceed();
-      originalHandleProceed();
-    };
-    
-    const tempHandleModify = () => {
-      handlers.onModify();
-      originalHandleModify();
-    };
-    
-    const tempHandleCancel = () => {
-      handlers.onCancel();
-      originalHandleCancel();
-    };
-    
-    // Here we would typically set these handlers to be used,
-    // but since the component structure doesn't allow for dynamic handler changes,
-    // this is a placeholder for the actual implementation.
-    
-    // In a real implementation, we'd need a more robust way to override these handlers
-    // or use a different pattern like a context provider
+    return true;
   }, [handleProceed, handleModify, handleCancel, showCheckpointInternal]);
-
-  // Function to show a success dialog
-  const showSuccessDialog = useCallback((summary: ActionSummary) => {
-    showSuccessDialogInternal(summary);
-  }, [showSuccessDialogInternal]);
 
   // Find action based on user input
   const findRelevantAction = useCallback((input: string) => {

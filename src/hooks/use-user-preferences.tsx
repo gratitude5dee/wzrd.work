@@ -41,7 +41,7 @@ export function useUserPreferences() {
       if (error) {
         if (error.code === 'PGRST116') {
           // No data found, create default preferences
-          const defaultPreferences: UserPreferences = {
+          const defaultPreferences = {
             user_id: user.id,
             checkpoint_frequency: 'medium',
             importance_threshold: 5,
@@ -58,12 +58,30 @@ export function useUserPreferences() {
             throw insertError;
           }
 
-          setPreferences(insertData);
+          // Convert string to typed enum and fix date formats
+          if (insertData) {
+            const typedPreferences: UserPreferences = {
+              ...insertData,
+              checkpoint_frequency: insertData.checkpoint_frequency as CheckpointFrequency,
+              created_at: insertData.created_at ? new Date(insertData.created_at) : undefined,
+              updated_at: insertData.updated_at ? new Date(insertData.updated_at) : undefined,
+              saved_decisions: insertData.saved_decisions || {}
+            };
+            setPreferences(typedPreferences);
+          }
         } else {
           throw error;
         }
-      } else {
-        setPreferences(data);
+      } else if (data) {
+        // Convert string to typed enum and fix date formats
+        const typedPreferences: UserPreferences = {
+          ...data,
+          checkpoint_frequency: data.checkpoint_frequency as CheckpointFrequency,
+          created_at: data.created_at ? new Date(data.created_at) : undefined,
+          updated_at: data.updated_at ? new Date(data.updated_at) : undefined,
+          saved_decisions: data.saved_decisions || {}
+        };
+        setPreferences(typedPreferences);
       }
     } catch (err) {
       console.error('Error fetching user preferences:', err);
@@ -89,9 +107,19 @@ export function useUserPreferences() {
     }
 
     try {
+      // Convert Date objects to ISO strings for Supabase
+      const supabaseFormatted: Record<string, any> = {};
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value instanceof Date) {
+          supabaseFormatted[key] = value.toISOString();
+        } else {
+          supabaseFormatted[key] = value;
+        }
+      });
+
       const { error } = await supabase
         .from('user_preferences')
-        .update(updates)
+        .update(supabaseFormatted)
         .eq('id', preferences.id);
 
       if (error) {

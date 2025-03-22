@@ -7,18 +7,21 @@ import PatternView from './PatternView';
 import ActivityLogView from './ActivityLogView';
 import InsightsView from './InsightsView';
 import ActivityHeader from './ActivityHeader';
+import { DateRange } from 'react-day-picker';
 
 const ActivityTab: React.FC = () => {
-  const [dateRange, setDateRange] = useState<{start: Date, end: Date}>({
-    start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // One week ago
-    end: new Date()
+  // Update the dateRange to use from/to instead of start/end to match DateRange type
+  const [dateRange, setDateRange] = useState<DateRange>({
+    from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // One week ago
+    to: new Date()
   });
   
   const [selectedApps, setSelectedApps] = useState<string[]>([]);
   const [activityTypes, setActivityTypes] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
-  const handleDateRangeChange = (range: {start: Date, end: Date}) => {
+  // Update the handler to accept the correct DateRange type
+  const handleDateRangeChange = (range: DateRange) => {
     setDateRange(range);
   };
   

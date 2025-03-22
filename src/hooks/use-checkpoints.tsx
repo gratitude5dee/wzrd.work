@@ -45,11 +45,11 @@ export function useCheckpoints() {
     // If it doesn't exist, we'll just generate default checkpoints
     const hasCheckpointConfig = action.hasOwnProperty('checkpoint_config') && 
                                action.checkpoint_config &&
-                               typeof action.checkpoint_config === 'object' &&
-                               action.checkpoint_config.checkpoints &&
-                               Array.isArray(action.checkpoint_config.checkpoints);
+                               typeof action.checkpoint_config === 'object';
     
-    if (hasCheckpointConfig) {
+    if (hasCheckpointConfig && (action as any).checkpoint_config && 
+        (action as any).checkpoint_config.checkpoints && 
+        Array.isArray((action as any).checkpoint_config.checkpoints)) {
       // Type assertion for TypeScript
       const config = (action as any).checkpoint_config;
       

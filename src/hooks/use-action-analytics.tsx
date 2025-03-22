@@ -32,12 +32,30 @@ export interface UsagePatternData {
   executionTimes: Array<{ date: string; value: number }>;
 }
 
+// Add this missing type that is referenced in use-digital-assistant.tsx
+export interface ActionSummary {
+  id: string;
+  name: string;
+  description: string;
+  completedSteps: number;
+  totalSteps: number;
+  metrics: {
+    timeSaved: number;
+    executionTime: number;
+    successRate: number;
+    automationLevel: number;
+  };
+  relatedActions?: Array<{ id: string; name: string }>;
+}
+
 export function useActionAnalytics(actionId?: string) {
   const [actionData, setActionData] = useState<ActionAnalyticsData | null>(null);
   const [userData, setUserData] = useState<UserAnalyticsData | null>(null);
   const [usagePatterns, setUsagePatterns] = useState<UsagePatternData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState<boolean>(false);
+  const [currentSummary, setCurrentSummary] = useState<ActionSummary | null>(null);
   const { user } = useAuth();
 
   // Fetch analytics data for a specific action
@@ -103,6 +121,22 @@ export function useActionAnalytics(actionId?: string) {
     }
   }, [user]);
 
+  // Add the missing functions needed in DigitalAssistant.tsx
+  const showSuccessDialog = useCallback((summary: ActionSummary) => {
+    setCurrentSummary(summary);
+    setIsSuccessDialogOpen(true);
+  }, []);
+
+  const closeSuccessDialog = useCallback(() => {
+    setIsSuccessDialogOpen(false);
+    setCurrentSummary(null);
+  }, []);
+
+  const getActionMetrics = useCallback((id: string) => {
+    fetchActionAnalytics(id);
+    return actionData;
+  }, [fetchActionAnalytics, actionData]);
+
   // Get related actions based on usage patterns
   const getRelatedActions = useCallback(async (action: WorkflowAction, limit: number = 3): Promise<Array<WorkflowAction>> => {
     if (!user) return [];
@@ -120,11 +154,14 @@ export function useActionAnalytics(actionId?: string) {
         
         if (error) throw error;
         
-        // Get the action details
+        // Get the action details - filter out nulls and check if data exists
+        if (!data || !Array.isArray(data)) return [];
+        
         const actionIds = data
-          .filter(item => item.action_id !== action.id)
+          .filter(item => item && typeof item === 'object' && item.action_id !== action.id)
           .slice(0, limit)
-          .map(item => item.action_id);
+          .map(item => item?.action_id)
+          .filter(Boolean) as string[]; // Type assertion after filtering nulls
         
         if (actionIds.length === 0) return [];
         
@@ -155,13 +192,6 @@ export function useActionAnalytics(actionId?: string) {
     }
   }, [user]);
 
-  // Load action analytics on mount if actionId is provided
-  useEffect(() => {
-    if (actionId) {
-      fetchActionAnalytics(actionId);
-    }
-  }, [actionId, fetchActionAnalytics]);
-
   return {
     actionData,
     userData,
@@ -171,6 +201,12 @@ export function useActionAnalytics(actionId?: string) {
     fetchActionAnalytics,
     fetchUserAnalytics,
     fetchUsagePatterns,
-    getRelatedActions
+    getRelatedActions,
+    // Add these missing properties/methods used in DigitalAssistant.tsx
+    getActionMetrics,
+    isSuccessDialogOpen,
+    currentSummary,
+    showSuccessDialog,
+    closeSuccessDialog
   };
 }

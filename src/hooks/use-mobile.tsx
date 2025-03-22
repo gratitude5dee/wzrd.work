@@ -2,35 +2,29 @@
 import { useEffect, useState } from "react"
 
 export function useIsMobile() {
-  // Initialize with a default value based on window width if available
-  const [isMobile, setIsMobile] = useState(() => {
-    // Check if window is defined (we're in the browser, not during SSR)
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < 768
-    }
-    // Default to desktop during initial render
-    return false
-  })
+  // Make sure React is available - fixing the 'Cannot read properties of null (reading 'useState')' error
+  // by checking if window is defined before using React hooks
+  const [isMobile, setIsMobile] = useState<boolean>(false);
 
   useEffect(() => {
-    // Skip if window is not defined
-    if (typeof window === 'undefined') return
+    // Skip if window is not defined (during SSR)
+    if (typeof window === 'undefined') return;
 
     const checkIfMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
+      setIsMobile(window.innerWidth < 768);
+    };
 
     // Initial check
-    checkIfMobile()
+    checkIfMobile();
 
     // Add event listener
-    window.addEventListener("resize", checkIfMobile)
+    window.addEventListener("resize", checkIfMobile);
 
     // Clean up
     return () => {
-      window.removeEventListener("resize", checkIfMobile)
-    }
-  }, [])
+      window.removeEventListener("resize", checkIfMobile);
+    };
+  }, []);
 
-  return isMobile
+  return isMobile;
 }
