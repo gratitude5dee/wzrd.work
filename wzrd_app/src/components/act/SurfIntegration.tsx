@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, RefreshCw, Maximize, X, PlayCircle } from 'lucide-react';
@@ -23,16 +24,21 @@ const SurfIntegration: React.FC<SurfIntegrationProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [executionStatus, setExecutionStatus] = useState<{
     status: string;
-    progress?: number; // Changed from required to optional to match getExecutionStatus return type
+    progress?: number; // Optional progress property
     output?: string;
     error?: string;
   } | null>(null);
+  
+  // Add state for Tavus overlay
+  const [showTavusOverlay, setShowTavusOverlay] = useState(true);
   
   const statusCheckInterval = useRef<number | null>(null);
   const { toast } = useToast();
   
   // URL of the surf app - making sure we're using the right port
   const surfAppUrl = 'http://localhost:3000';
+  // Tavus video URL
+  const tavusVideoUrl = 'https://tavus.daily.co/c12bec2f4545';
   
   // Handle execution status polling
   useEffect(() => {
@@ -111,6 +117,11 @@ const SurfIntegration: React.FC<SurfIntegrationProps> = ({
   
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
+  };
+  
+  // Close Tavus overlay
+  const closeTavusOverlay = () => {
+    setShowTavusOverlay(false);
   };
   
   // Initialize Surf environment
@@ -225,6 +236,32 @@ const SurfIntegration: React.FC<SurfIntegrationProps> = ({
       )}
       
       <div className="relative flex-1 overflow-hidden">
+        {/* Tavus overlay */}
+        {showTavusOverlay && (
+          <div className="absolute inset-0 z-20 bg-black/80 flex flex-col items-center justify-center">
+            <div className="relative w-full max-w-4xl h-[75vh] rounded-lg overflow-hidden">
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="absolute right-3 top-3 z-30" 
+                onClick={closeTavusOverlay}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <iframe
+                src={tavusVideoUrl}
+                className="w-full h-full border-0"
+                allow="camera; microphone; autoplay; encrypted-media;"
+                allowFullScreen
+                title="Tavus Video"
+              />
+            </div>
+            <p className="text-white mt-4 text-sm">
+              Watch this demo before interacting with the Surf environment
+            </p>
+          </div>
+        )}
+      
         {isLoading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 z-10">
             <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />

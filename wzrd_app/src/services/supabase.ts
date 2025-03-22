@@ -1,195 +1,242 @@
 
-import { supabase } from '@/integrations/supabase/client';
-import { ActionData, ExecutionLog } from '@/hooks/use-action-analytics';
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '@/integrations/supabase/types';
 
-/**
- * Get all actions for a specific user
- */
-export const getActions = async (userId: string): Promise<ActionData[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('workflow_actions')
-      .select('*')
-      .eq('user_id', userId);
-      
-    if (error) throw error;
+// Initialize Supabase client
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+// Use explicit type annotations to prevent excessive type recursion
+export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+
+// Function to retrieve Action data based on ID
+export async function getActionById(actionId: string) {
+  const { data, error } = await supabase
+    .from('actions')
+    .select('*')
+    .eq('id', actionId)
+    .single();
     
-    // Transform the data to match the ActionData interface using explicit type annotation
-    // to prevent deep type instantiation
-    const transformedData: ActionData[] = (data || []).map(item => ({
-      id: item.id,
-      created_at: item.created_at,
-      user_id: userId,
-      name: item.name || '',
-      description: item.description || '',
-      pattern: Array.isArray(item.tags) ? item.tags : [], 
-      script: item.instructions || '',
-      success_rate: item.confidence_score || 0,
-      average_execution_time: item.estimated_time_seconds || 0,
-      category: item.action_type || ''
-    }));
-    
-    return transformedData;
-  } catch (error) {
-    console.error('Error fetching actions:', error);
-    return [];
+  if (error) {
+    throw new Error(`Error fetching action: ${error.message}`);
   }
-};
+  
+  return data;
+}
 
-/**
- * Get all action executions for a specific user
- */
-export const getActionExecutions = async (userId: string): Promise<ExecutionLog[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('execution_logs')
-      .select('*')
-      .eq('user_id', userId);
-      
-    if (error) throw error;
+// Function to list all actions
+export async function listActions() {
+  const { data, error } = await supabase
+    .from('actions')
+    .select('*')
+    .order('created_at', { ascending: false });
     
-    // Transform the data to match the ExecutionLog interface using explicit type 
-    // annotation to prevent deep type instantiation
-    const transformedData: ExecutionLog[] = (data || []).map(item => {
-      // Handle execution_data parsing
-      let inputValue = '';
-      let outputValue = '';
-      
-      if (item.execution_data) {
-        try {
-          const execData = typeof item.execution_data === 'string' 
-            ? JSON.parse(item.execution_data) 
-            : item.execution_data;
-              
-          if (execData) {
-            inputValue = execData.input || '';
-            outputValue = execData.output || '';
-          }
-        } catch (e) {
-          console.error('Error parsing execution data:', e);
-        }
-      }
-      
-      return {
-        id: item.id,
-        created_at: item.created_at,
-        action_id: item.action_id,
-        user_id: item.user_id,
-        success: item.status === 'completed', 
-        time_saved: item.duration_seconds ? item.duration_seconds * 2 : 0,
-        execution_time: item.duration_seconds || 0,
-        input: inputValue,
-        output: outputValue
-      };
-    });
-    
-    return transformedData;
-  } catch (error) {
-    console.error('Error fetching action executions:', error);
-    return [];
+  if (error) {
+    throw new Error(`Error fetching actions: ${error.message}`);
   }
-};
+  
+  return data || [];
+}
 
-/**
- * Execute an action with Surf integration
- */
-export const executeAction = async (
-  actionId: string, 
-  userId: string,
-  input?: string
-): Promise<{ executionId: string; success: boolean; message: string }> => {
+// Function to create a new action
+export async function createAction(actionData: {
+  name: string;
+  description: string;
+  steps: Array<{
+    type: string;
+    action: string;
+    parameters?: Record<string, any>;
+    target?: string;
+  }>;
+  prompt: string;
+  expected_outcome: string;
+  triggers?: string[];
+  examples?: string[];
+  prerequisites?: string[];
+}) {
+  const { data, error } = await supabase
+    .from('actions')
+    .insert([
+      {
+        name: actionData.name,
+        description: actionData.description,
+        steps: actionData.steps,
+        prompt: actionData.prompt,
+        expected_outcome: actionData.expected_outcome,
+        triggers: actionData.triggers || [],
+        examples: actionData.examples || [],
+        prerequisites: actionData.prerequisites || [],
+        created_by: (await supabase.auth.getUser()).data.user?.id || 'anonymous',
+      },
+    ])
+    .select()
+    .single();
+    
+  if (error) {
+    throw new Error(`Error creating action: ${error.message}`);
+  }
+  
+  return data;
+}
+
+// Function to update an existing action
+export async function updateAction(
+  id: string,
+  actionData: {
+    name?: string;
+    description?: string;
+    steps?: Array<{
+      type: string;
+      action: string;
+      parameters?: Record<string, any>;
+      target?: string;
+    }>;
+    prompt?: string;
+    expected_outcome?: string;
+    triggers?: string[];
+    examples?: string[];
+    prerequisites?: string[];
+  }
+) {
+  const { data, error } = await supabase
+    .from('actions')
+    .update(actionData)
+    .eq('id', id)
+    .select()
+    .single();
+    
+  if (error) {
+    throw new Error(`Error updating action: ${error.message}`);
+  }
+  
+  return data;
+}
+
+// Function to delete an action
+export async function deleteAction(id: string) {
+  const { error } = await supabase
+    .from('actions')
+    .delete()
+    .eq('id', id);
+    
+  if (error) {
+    throw new Error(`Error deleting action: ${error.message}`);
+  }
+  
+  return true;
+}
+
+// Function to execute an action
+export async function executeAction(actionId: string, userId: string) {
   try {
+    // Retrieve the action details
+    const action = await getActionById(actionId);
+    
+    if (!action) {
+      throw new Error('Action not found');
+    }
+    
+    // Call the Supabase Edge Function to execute the action
     const { data, error } = await supabase.functions.invoke('execute-action', {
-      body: { 
-        actionId, 
+      body: {
+        actionId,
         userId,
-        input,
-        useSurf: true // Flag to use Surf Computer Agent
-      }
+        actionDetails: action,
+      },
     });
     
-    if (error) throw error;
+    if (error) {
+      throw new Error(`Error executing action: ${error.message}`);
+    }
     
-    return {
-      executionId: data.executionId || '',
-      success: data.success || false,
-      message: data.message || 'Action execution requested'
+    // Return the execution result
+    return data as {
+      success: boolean;
+      executionId: string;
+      message?: string;
     };
   } catch (error) {
-    console.error('Error executing action:', error);
+    console.error('Error in executeAction:', error);
     return {
-      executionId: '',
       success: false,
-      message: `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`
+      executionId: '',
+      message: error instanceof Error ? error.message : 'Unknown error occurred',
     };
   }
-};
+}
 
-/**
- * Get execution status updates for a specific execution
- */
-export const getExecutionStatus = async (executionId: string): Promise<{
-  status: string;
-  progress?: number;
-  output?: string;
-  error?: string;
-}> => {
+// Function to get execution status
+export async function getExecutionStatus(executionId: string) {
   try {
     const { data, error } = await supabase
-      .from('execution_logs')
+      .from('action_executions')
       .select('*')
       .eq('id', executionId)
       .single();
     
-    if (error) throw error;
-    
-    // Extract output from execution data if available
-    let output = '';
-    let outputError = '';
-    let progressValue = 0;
-    
-    if (data.execution_data) {
-      try {
-        const execData = typeof data.execution_data === 'string' 
-          ? JSON.parse(data.execution_data) 
-          : data.execution_data;
-                
-        if (execData) {
-          output = execData.output || '';
-          outputError = execData.error || '';
-          // Use progress from execution_data if available
-          if (typeof execData.progress === 'number') {
-            progressValue = execData.progress;
-          }
-        }
-      } catch (e) {
-        console.error('Error parsing execution data:', e);
-      }
+    if (error) {
+      throw new Error(`Error fetching execution: ${error.message}`);
     }
     
-    // Calculate progress based on status if not available in execution_data
-    if (progressValue === 0) {
-      if (data.status === 'completed') {
-        progressValue = 100;
-      } else if (data.status === 'running') {
-        progressValue = 50;
-      } else if (data.status === 'started') {
-        progressValue = 10;
+    if (!data) {
+      throw new Error('Execution not found');
+    }
+    
+    // Default values
+    let progress = 0;
+    
+    // Try to extract progress from execution_data
+    try {
+      if (data.execution_data && typeof data.execution_data === 'string') {
+        // Safely parse the JSON or use an empty object
+        const executionData = JSON.parse(data.execution_data);
+        if (typeof executionData.progress === 'number') {
+          progress = executionData.progress;
+        }
+      } else if (data.execution_data && typeof data.execution_data === 'object') {
+        // If it's already an object
+        const executionData = data.execution_data as { progress?: number };
+        if (typeof executionData.progress === 'number') {
+          progress = executionData.progress;
+        }
+      }
+    } catch (e) {
+      // If parsing fails, calculate progress based on status
+      console.warn('Error parsing execution_data:', e);
+    }
+    
+    // If no progress has been set, estimate based on status
+    if (progress === 0) {
+      switch (data.status) {
+        case 'queued':
+          progress = 0;
+          break;
+        case 'processing':
+          progress = 50;
+          break;
+        case 'completed':
+          progress = 100;
+          break;
+        case 'failed':
+          progress = 100;
+          break;
+        default:
+          progress = 0;
       }
     }
     
     return {
-      status: data.status || 'unknown',
-      progress: progressValue,
-      output,
-      error: data.error_message || outputError || undefined
+      status: data.status,
+      progress, // Now returns the calculated or extracted progress
+      output: data.result,
+      error: data.error_message,
     };
   } catch (error) {
-    console.error('Error fetching execution status:', error);
+    console.error('Error in getExecutionStatus:', error);
     return {
       status: 'error',
       progress: 0,
-      error: `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
     };
   }
-};
+}
