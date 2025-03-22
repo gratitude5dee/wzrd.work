@@ -64,6 +64,17 @@ const Dashboard: React.FC = () => {
   
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'there';
   
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    
+    // Navigate to corresponding routes for Learn and Act tabs
+    if (value === 'learn') {
+      navigate('/dashboard/recordings');
+    } else if (value === 'act') {
+      navigate('/dashboard/act');
+    }
+  };
+  
   return (
     <DashboardLayout>
       <FadeIn>
@@ -83,7 +94,7 @@ const Dashboard: React.FC = () => {
                 <Lightbulb className="h-4 w-4" />
                 View Tutorial
               </Button>
-              <Button className="gap-2">
+              <Button className="gap-2" onClick={() => navigate('/dashboard/recordings/new')}>
                 <BrainCog className="h-4 w-4" />
                 Start Recording
               </Button>
@@ -113,7 +124,7 @@ const Dashboard: React.FC = () => {
           </div>
           
           {/* Main content tabs */}
-          <Tabs defaultValue="overview" onValueChange={setActiveTab} className="space-y-6 pt-4">
+          <Tabs defaultValue="overview" onValueChange={handleTabChange} className="space-y-6 pt-4">
             <TabsList className="grid w-full md:w-[400px] grid-cols-3">
               <TabsTrigger value="overview" className="gap-2">
                 <Sparkles className="h-4 w-4" />
@@ -137,7 +148,7 @@ const Dashboard: React.FC = () => {
                   icon={Lightbulb}
                   action={{
                     label: "Start Learning",
-                    onClick: () => setActiveTab('learn')
+                    onClick: () => handleTabChange('learn')
                   }}
                   className="my-8"
                 />
@@ -169,7 +180,7 @@ const Dashboard: React.FC = () => {
                       <strong>Privacy Note:</strong> Screen recordings are processed locally first for privacy. You control what data is shared.
                     </p>
                   </div>
-                  <Button>Start Recording</Button>
+                  <Button onClick={() => navigate('/dashboard/recordings/new')}>Start Recording</Button>
                 </div>
               </div>
             </TabsContent>
@@ -186,7 +197,7 @@ const Dashboard: React.FC = () => {
                     No automations available yet. Complete a learning session first.
                   </p>
                 </div>
-                <Button variant="outline" onClick={() => setActiveTab('learn')}>Start Learning First</Button>
+                <Button variant="outline" onClick={() => handleTabChange('learn')}>Start Learning First</Button>
               </div>
             </TabsContent>
           </Tabs>

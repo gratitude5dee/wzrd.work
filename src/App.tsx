@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import RecordingsPage from "./pages/RecordingsPage";
 import NewRecordingPage from "./pages/NewRecordingPage";
 import RecordingDetailsPage from "./pages/RecordingDetailsPage";
+import ActPage from "./pages/ActPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 import React from "react"; // Added explicit React import
@@ -87,6 +88,16 @@ const App = () => {
                 element={
                   <ProtectedRoute>
                     <RecordingDetailsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Act route */}
+              <Route 
+                path="/dashboard/act" 
+                element={
+                  <ProtectedRoute>
+                    <ActPage />
                   </ProtectedRoute>
                 } 
               />

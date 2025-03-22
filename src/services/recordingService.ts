@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
@@ -33,6 +32,11 @@ export interface WorkflowAction {
   action_data?: any;
   confidence_score?: number;
   created_at: string;
+  thumbnail_url?: string; // URL for the action thumbnail
+  name?: string; // Name of the action
+  description?: string; // Description of the action
+  instructions?: string; // Instructions for how to execute the action
+  tags?: string[]; // Tags for filtering
 }
 
 // Function to submit a new recording
@@ -155,8 +159,8 @@ export function useRecordingStatus(id: string) {
     enabled: !!id,
     refetchInterval: (data) => {
       // Poll every 5 seconds if status is pending or processing
-      // Access the data property of the query result
-      if (data && (data.status === 'pending' || data.status === 'processing')) {
+      // Fixed the data access pattern to get the status properly
+      if (data?.data && (data.data.status === 'pending' || data.data.status === 'processing')) {
         return 5000;
       }
       return false;
@@ -226,6 +230,95 @@ export function useTriggerProcessing() {
     onError: (error: Error) => {
       toast({
         title: "Error starting processing",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+}
+
+// Function to fetch all available actions
+export async function fetchAvailableActions(): Promise<WorkflowAction[]> {
+  try {
+    const { data, error } = await supabase
+      .from('workflow_actions')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data as WorkflowAction[];
+  } catch (error) {
+    console.error("Error fetching available actions:", error);
+    throw error;
+  }
+}
+
+// Hook to get all available actions
+export function useAvailableActions(filters?: { tags?: string[], search?: string }) {
+  return useQuery({
+    queryKey: ['available_actions', filters],
+    queryFn: async () => {
+      let query = supabase
+        .from('workflow_actions')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      // Apply search filter if provided
+      if (filters?.search) {
+        query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+      }
+      
+      // Apply tag filter if provided
+      if (filters?.tags && filters.tags.length > 0) {
+        // This is a simplified approach - in a real app, you might need a more sophisticated filtering method for tags
+        query = query.contains('tags', filters.tags);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      return data as WorkflowAction[];
+    }
+  });
+}
+
+// Function to execute an action
+export async function executeAction(actionId: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await supabase.functions.invoke('execute-action', {
+      body: { actionId }
+    });
+
+    if (response.error) {
+      throw new Error(response.error.message || "Failed to execute action");
+    }
+
+    return { success: true, message: "Action executed successfully" };
+  } catch (error) {
+    console.error("Error executing action:", error);
+    throw error;
+  }
+}
+
+// Hook to execute an action with React Query
+export function useExecuteAction() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (actionId: string) => {
+      return executeAction(actionId);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Action executed",
+        description: "The action has been executed successfully",
+      });
+      // Invalidate actions query to reflect any changes
+      queryClient.invalidateQueries({ queryKey: ['available_actions'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error executing action",
         description: error.message,
         variant: "destructive",
       });
