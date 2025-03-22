@@ -1,5 +1,5 @@
 
-import * as e2b from '@e2b/sdk';
+import { createSandbox, type Sandbox } from '@e2b/sdk';
 
 // Configuration for E2B
 const E2B_API_KEY = import.meta.env.VITE_E2B_API_KEY || '';
@@ -22,9 +22,7 @@ export interface ExecutionStatus {
 
 // Class to manage the E2B session
 export class E2BManager {
-  private session: e2b.Session | null = null;
-  private browser: e2b.Browser | null = null;
-  private terminal: e2b.Terminal | null = null;
+  private sandbox: Sandbox | null = null;
   private executionStatus: ExecutionStatus = {
     running: false,
     currentStep: 0,
@@ -40,15 +38,11 @@ export class E2BManager {
         throw new Error('E2B API key is not set');
       }
 
-      // Create a new E2B session
-      this.session = await e2b.Session.create({
+      // Create a new E2B sandbox
+      this.sandbox = await createSandbox({
         apiKey: E2B_API_KEY,
         template: 'base',
       });
-
-      // Initialize browser and terminal
-      this.browser = await this.session.browser.start();
-      this.terminal = await this.session.terminal.start();
       
       this.addLog('E2B session initialized successfully');
       this.updateStatus();
@@ -61,7 +55,7 @@ export class E2BManager {
 
   // Execute an action with specified steps
   async executeAction(steps: ActionStep[]): Promise<void> {
-    if (!this.session || !this.browser || !this.terminal) {
+    if (!this.sandbox) {
       throw new Error('E2B session not initialized');
     }
 
@@ -83,18 +77,22 @@ export class E2BManager {
         // Execute step based on type
         switch (step.type) {
           case 'click':
-            if (step.params?.x && step.params?.y) {
-              await this.browser.click(step.params.x, step.params.y);
-              this.addLog(`Clicked at position x: ${step.params.x}, y: ${step.params.y}`);
-            } else if (step.params?.selector) {
-              await this.browser.clickElement(step.params.selector);
+            if (step.params?.selector) {
+              // Use the browser to click on an element by selector
+              await this.sandbox.browser.click({ selector: step.params.selector });
               this.addLog(`Clicked element: ${step.params.selector}`);
+            } else if (step.params?.x && step.params?.y) {
+              // Click at coordinates
+              await this.sandbox.browser.click({ 
+                position: { x: step.params.x, y: step.params.y } 
+              });
+              this.addLog(`Clicked at position x: ${step.params.x}, y: ${step.params.y}`);
             }
             break;
             
           case 'type':
             if (step.params?.text) {
-              await this.browser.type(step.params.text);
+              await this.sandbox.browser.type({ text: step.params.text });
               this.addLog(`Typed: ${step.params.text}`);
             }
             break;
@@ -108,15 +106,18 @@ export class E2BManager {
             
           case 'command':
             if (step.params?.command) {
-              const result = await this.terminal.exec(step.params.command);
+              const process = await this.sandbox.process.start({
+                cmd: step.params.command.split(' '),
+              });
+              const output = await process.wait();
               this.addLog(`Executed command: ${step.params.command}`);
-              this.addLog(`Command output: ${result.stdout}`);
-              if (result.stderr) this.addLog(`Command error: ${result.stderr}`);
+              this.addLog(`Command output: ${output.stdout}`);
+              if (output.stderr) this.addLog(`Command error: ${output.stderr}`);
             }
             break;
             
           case 'screenshot':
-            const screenshot = await this.browser.screenshot();
+            const screenshot = await this.sandbox.browser.screenshot();
             this.executionStatus.screenshot = screenshot;
             this.addLog('Took a screenshot');
             break;
@@ -165,7 +166,7 @@ export class E2BManager {
 
   // Upload a file to the sandboxed environment
   async uploadFile(file: File): Promise<string> {
-    if (!this.session) {
+    if (!this.sandbox) {
       throw new Error('E2B session not initialized');
     }
 
@@ -175,7 +176,7 @@ export class E2BManager {
       
       // Upload file to the sandbox
       const filePath = `/tmp/${file.name}`;
-      await this.session.filesystem.write(filePath, buffer);
+      await this.sandbox.filesystem.write(filePath, new Uint8Array(buffer));
       
       this.addLog(`File ${file.name} uploaded successfully`);
       return filePath;
@@ -188,13 +189,13 @@ export class E2BManager {
 
   // Download a file from the sandboxed environment
   async downloadFile(filePath: string): Promise<Blob> {
-    if (!this.session) {
+    if (!this.sandbox) {
       throw new Error('E2B session not initialized');
     }
 
     try {
       // Read file from the sandbox
-      const fileContent = await this.session.filesystem.read(filePath);
+      const fileContent = await this.sandbox.filesystem.read(filePath);
       const fileName = filePath.split('/').pop() || 'downloaded_file';
       
       // Convert to Blob
@@ -212,21 +213,11 @@ export class E2BManager {
   // Clean up resources
   async cleanup(): Promise<void> {
     try {
-      if (this.browser) {
-        await this.browser.close();
+      if (this.sandbox) {
+        await this.sandbox.close();
       }
       
-      if (this.terminal) {
-        await this.terminal.close();
-      }
-      
-      if (this.session) {
-        await this.session.close();
-      }
-      
-      this.session = null;
-      this.browser = null;
-      this.terminal = null;
+      this.sandbox = null;
       
       this.addLog('E2B session cleaned up');
       this.updateStatus();
