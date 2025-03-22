@@ -100,11 +100,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                   </SidebarMenuItem>
                   
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip="Learn Mode">
-                      <a href="/dashboard/learn">
+                    <SidebarMenuButton 
+                      asChild 
+                      tooltip="Learn Mode"
+                      onClick={() => navigate('/dashboard/recordings')}
+                    >
+                      <button>
                         <BrainCog />
                         <span>Learn Mode</span>
-                      </a>
+                      </button>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   
