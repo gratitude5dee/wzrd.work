@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -174,7 +173,8 @@ export function useActionAnalytics(actionId?: string) {
           }
         }
         
-        // Now we can safely work with validItems
+        // Now we can safely work with validItems - no need for additional null checks
+        // since we've already validated each item before adding it to validItems
         const actionIds = validItems
           .filter(item => item.action_id !== action.id)
           .slice(0, limit)
