@@ -51,13 +51,17 @@ const RecordingDetailsPage: React.FC = () => {
   // Helper function to safely access nested properties
   const getMetadataValue = (path: string, defaultValue: any = null) => {
     try {
-      if (!recording.raw_data || typeof recording.raw_data !== 'object') return defaultValue;
+      if (!recording.raw_data) return defaultValue;
       
-      const metadata = recording.raw_data.metadata;
-      if (!metadata || typeof metadata !== 'object') return defaultValue;
+      const rawData = recording.raw_data;
       
-      if (path === 'duration') return metadata.duration || defaultValue;
-      if (path === 'totalEvents') return metadata.totalEvents || defaultValue;
+      if (typeof rawData !== 'object') return defaultValue;
+      
+      // Handle case when raw_data is an object
+      if (!Array.isArray(rawData) && rawData.metadata) {
+        if (path === 'duration') return rawData.metadata.duration || defaultValue;
+        if (path === 'totalEvents') return rawData.metadata.totalEvents || defaultValue;
+      }
       
       return defaultValue;
     } catch (error) {
@@ -150,7 +154,7 @@ const RecordingDetailsPage: React.FC = () => {
                       </p>
                     </div>
                     
-                    {recording.raw_data && typeof recording.raw_data === 'object' && (
+                    {recording.raw_data && typeof recording.raw_data === 'object' && !Array.isArray(recording.raw_data) && (
                       <div>
                         <h4 className="font-medium mb-1">Metadata</h4>
                         <div className="grid grid-cols-2 gap-4">
