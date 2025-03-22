@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { ActionData, ExecutionLog } from '@/hooks/use-action-analytics';
 

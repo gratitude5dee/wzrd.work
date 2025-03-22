@@ -11,7 +11,7 @@ const ActPage: React.FC = () => {
         <div className="flex flex-col gap-6">
           <div className="aspect-video w-full rounded-lg overflow-hidden border border-border">
             <iframe
-              src="https://tavus.daily.co/c07bac772d2a"
+              src="https://tavus.daily.co/c085e851cb2c"
               className="w-full h-full"
               allow="camera; microphone; fullscreen; speaker; display-capture"
               title="Tavus Meeting"
