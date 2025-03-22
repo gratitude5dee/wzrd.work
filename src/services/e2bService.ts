@@ -1,5 +1,5 @@
 
-import { createSandbox, type Sandbox } from '@e2b/sdk';
+import { EphemeralCloud } from '@e2b/sdk';
 
 // Configuration for E2B
 const E2B_API_KEY = import.meta.env.VITE_E2B_API_KEY || '';
@@ -20,9 +20,13 @@ export interface ExecutionStatus {
   screenshot?: string;
 }
 
+// Type for the E2B Sandbox
+type Sandbox = Awaited<ReturnType<typeof EphemeralCloud.prototype.sandbox>>;
+
 // Class to manage the E2B session
 export class E2BManager {
   private sandbox: Sandbox | null = null;
+  private cloud: EphemeralCloud | null = null;
   private executionStatus: ExecutionStatus = {
     running: false,
     currentStep: 0,
@@ -38,11 +42,11 @@ export class E2BManager {
         throw new Error('E2B API key is not set');
       }
 
-      // Create a new E2B sandbox
-      this.sandbox = await createSandbox({
-        apiKey: E2B_API_KEY,
-        template: 'base',
-      });
+      // Create a new E2B instance
+      this.cloud = new EphemeralCloud({ apiKey: E2B_API_KEY });
+      
+      // Create a new sandbox
+      this.sandbox = await this.cloud.sandbox({ template: 'base' });
       
       this.addLog('E2B session initialized successfully');
       this.updateStatus();
@@ -79,11 +83,13 @@ export class E2BManager {
           case 'click':
             if (step.params?.selector) {
               // Use the browser to click on an element by selector
-              await this.sandbox.browser.click({ selector: step.params.selector });
+              const webBrowser = await this.sandbox.webBrowser();
+              await webBrowser.click({ selector: step.params.selector });
               this.addLog(`Clicked element: ${step.params.selector}`);
             } else if (step.params?.x && step.params?.y) {
               // Click at coordinates
-              await this.sandbox.browser.click({ 
+              const webBrowser = await this.sandbox.webBrowser();
+              await webBrowser.click({ 
                 position: { x: step.params.x, y: step.params.y } 
               });
               this.addLog(`Clicked at position x: ${step.params.x}, y: ${step.params.y}`);
@@ -92,7 +98,8 @@ export class E2BManager {
             
           case 'type':
             if (step.params?.text) {
-              await this.sandbox.browser.type({ text: step.params.text });
+              const webBrowser = await this.sandbox.webBrowser();
+              await webBrowser.type({ text: step.params.text });
               this.addLog(`Typed: ${step.params.text}`);
             }
             break;
@@ -106,18 +113,17 @@ export class E2BManager {
             
           case 'command':
             if (step.params?.command) {
-              const process = await this.sandbox.process.start({
-                cmd: step.params.command.split(' '),
-              });
-              const output = await process.wait();
+              const terminal = await this.sandbox.terminal();
+              const result = await terminal.exec(step.params.command);
               this.addLog(`Executed command: ${step.params.command}`);
-              this.addLog(`Command output: ${output.stdout}`);
-              if (output.stderr) this.addLog(`Command error: ${output.stderr}`);
+              this.addLog(`Command output: ${result.stdout}`);
+              if (result.stderr) this.addLog(`Command error: ${result.stderr}`);
             }
             break;
             
           case 'screenshot':
-            const screenshot = await this.sandbox.browser.screenshot();
+            const webBrowser = await this.sandbox.webBrowser();
+            const screenshot = await webBrowser.screenshot();
             this.executionStatus.screenshot = screenshot;
             this.addLog('Took a screenshot');
             break;
@@ -175,8 +181,9 @@ export class E2BManager {
       const buffer = await file.arrayBuffer();
       
       // Upload file to the sandbox
+      const filesystem = await this.sandbox.filesystem();
       const filePath = `/tmp/${file.name}`;
-      await this.sandbox.filesystem.write(filePath, new Uint8Array(buffer));
+      await filesystem.write(filePath, new Uint8Array(buffer));
       
       this.addLog(`File ${file.name} uploaded successfully`);
       return filePath;
@@ -195,7 +202,8 @@ export class E2BManager {
 
     try {
       // Read file from the sandbox
-      const fileContent = await this.sandbox.filesystem.read(filePath);
+      const filesystem = await this.sandbox.filesystem();
+      const fileContent = await filesystem.read(filePath);
       const fileName = filePath.split('/').pop() || 'downloaded_file';
       
       // Convert to Blob
@@ -218,6 +226,7 @@ export class E2BManager {
       }
       
       this.sandbox = null;
+      this.cloud = null;
       
       this.addLog('E2B session cleaned up');
       this.updateStatus();
