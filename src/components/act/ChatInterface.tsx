@@ -1,10 +1,17 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, BrainCog, Robot, User, DownloadCloud } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Bot, SendHorizonal, Play } from 'lucide-react';
+import { Avatar } from '@/components/ui/avatar';
+import { useToast } from '@/hooks/use-toast';
+
+interface ChatInterfaceProps {
+  actionId?: string;
+  onExecuteAction?: () => void;
+}
 
 interface Message {
   id: string;
@@ -13,53 +20,21 @@ interface Message {
   timestamp: Date;
 }
 
-interface ChatInterfaceProps {
-  actionId?: string;
-  onExecuteAction?: () => void;
-}
-
-const ChatInterface: React.FC<ChatInterfaceProps> = ({
-  actionId,
-  onExecuteAction
-}) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ actionId, onExecuteAction }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: 'Hello! I\'m your digital assistant. I can help you execute and customize actions. Select an action to get started.',
+      content: 'Hello! I can help you execute and understand workflow actions. Select an action to get started.',
       sender: 'assistant',
       timestamp: new Date()
     }
   ]);
   const [inputValue, setInputValue] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      const scrollArea = scrollAreaRef.current;
-      scrollArea.scrollTop = scrollArea.scrollHeight;
-    }
-  }, [messages]);
-
-  // Add a welcome message when an action is selected
-  useEffect(() => {
-    if (actionId) {
-      setMessages(prev => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          content: `Action selected! I can help you execute this action or customize it to fit your needs. What would you like to do?`,
-          sender: 'assistant',
-          timestamp: new Date()
-        }
-      ]);
-    }
-  }, [actionId]);
-
+  const { toast } = useToast();
+  
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
-
+    
     // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -71,161 +46,126 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     
-    // Simulate assistant typing
-    setIsTyping(true);
-    
-    // Simulate assistant response after a delay
+    // Simulate assistant response
     setTimeout(() => {
-      const assistantMessage: Message = {
-        id: (Date.now() + 100).toString(),
-        content: getAssistantResponse(inputValue, !!actionId),
+      const responseMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: actionId 
+          ? `I can help you with the selected action. Would you like me to explain how it works or execute it now?`
+          : `Please select an action from the list first, and I'll help you understand and execute it.`,
         sender: 'assistant',
         timestamp: new Date()
       };
       
-      setMessages(prev => [...prev, assistantMessage]);
-      setIsTyping(false);
-    }, 1500);
+      setMessages(prev => [...prev, responseMessage]);
+    }, 1000);
   };
-
-  // Simple response logic - in a real app, this would be connected to a real AI
-  const getAssistantResponse = (userInput: string, hasActionSelected: boolean): string => {
-    const input = userInput.toLowerCase();
-    
-    if (input.includes('execute') || input.includes('run') || input.includes('start')) {
-      if (hasActionSelected && onExecuteAction) {
-        setTimeout(() => onExecuteAction(), 500);
-        return "Starting the execution now! I'll guide you through each step.";
-      } else {
-        return "Please select an action first before executing.";
-      }
+  
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+  
+  const handleExecuteAction = () => {
+    if (!actionId) {
+      toast({
+        title: "No action selected",
+        description: "Please select an action to execute",
+        variant: "destructive"
+      });
+      return;
     }
     
-    if (input.includes('how') && input.includes('work')) {
-      return "I can help you automate tasks by executing predefined actions. Select an action from the list, and I'll guide you through the process or customize it for you.";
+    if (onExecuteAction) {
+      onExecuteAction();
+      
+      // Add system message about execution
+      const executionMessage: Message = {
+        id: Date.now().toString(),
+        content: "Executing the selected action now...",
+        sender: 'assistant',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, executionMessage]);
     }
-    
-    if (input.includes('hello') || input.includes('hi') || input.includes('hey')) {
-      return "Hello! How can I help you today? I can execute actions or help you customize them.";
-    }
-    
-    if (input.includes('thank')) {
-      return "You're welcome! Is there anything else I can help you with?";
-    }
-    
-    if (input.includes('custom') || input.includes('modify') || input.includes('change')) {
-      return "I can help you customize this action. What specific changes would you like to make?";
-    }
-    
-    return "I'm here to help you execute and customize actions. Let me know what you'd like to do, or just say 'run' to execute the selected action.";
   };
 
   return (
-    <div className="flex flex-col h-full border rounded-md overflow-hidden">
-      <div className="flex items-center justify-between p-3 border-b bg-muted/30">
-        <div className="flex items-center gap-2">
-          <Robot className="h-5 w-5 text-primary" />
-          <span className="font-medium text-sm">Action Assistant</span>
-        </div>
-        
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-          <DownloadCloud className="h-4 w-4" />
-        </Button>
+    <Card className="flex flex-col h-full border rounded-md overflow-hidden">
+      <div className="flex items-center gap-2 border-b p-2 bg-muted/30">
+        <Bot className="h-4 w-4 text-primary" />
+        <h3 className="text-sm font-medium">AI Assistant</h3>
       </div>
       
-      <ScrollArea 
-        className="flex-1 p-4" 
-        ref={scrollAreaRef}
-      >
+      <ScrollArea className="flex-1 p-3">
         <div className="space-y-4">
           {messages.map(message => (
             <div
               key={message.id}
-              className={cn(
-                "flex gap-3 max-w-[80%]",
-                message.sender === 'user' ? "ml-auto flex-row-reverse" : ""
-              )}
+              className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              <div 
-                className={cn(
-                  "flex items-center justify-center h-8 w-8 rounded-full flex-shrink-0",
-                  message.sender === 'user' 
-                    ? "bg-primary text-primary-foreground" 
-                    : "bg-secondary text-secondary-foreground"
+              <div className={`flex gap-2 max-w-[80%] ${message.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+                {message.sender === 'assistant' && (
+                  <Avatar className="h-8 w-8 bg-primary">
+                    <Bot className="h-4 w-4 text-primary-foreground" />
+                  </Avatar>
                 )}
-              >
-                {message.sender === 'user' ? (
-                  <User className="h-4 w-4" />
-                ) : (
-                  <BrainCog className="h-4 w-4" />
-                )}
-              </div>
-              
-              <div 
-                className={cn(
-                  "rounded-lg p-3 text-sm",
-                  message.sender === 'user' 
-                    ? "bg-primary text-primary-foreground" 
-                    : "bg-muted"
-                )}
-              >
-                {message.content}
-                <div 
-                  className={cn(
-                    "text-xs mt-1 text-right",
-                    message.sender === 'user' 
-                      ? "text-primary-foreground/80" 
-                      : "text-muted-foreground"
-                  )}
+                
+                <div
+                  className={`rounded-lg p-3 text-sm ${
+                    message.sender === 'user'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted'
+                  }`}
                 >
-                  {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {message.content}
+                  <div className={`text-xs mt-1 ${
+                    message.sender === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                  }`}>
+                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
               </div>
             </div>
           ))}
-          
-          {isTyping && (
-            <div className="flex gap-3 max-w-[80%]">
-              <div className="flex items-center justify-center h-8 w-8 rounded-full flex-shrink-0 bg-secondary text-secondary-foreground">
-                <BrainCog className="h-4 w-4" />
-              </div>
-              
-              <div className="rounded-lg p-3 text-sm bg-muted flex items-center">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse animation-delay-500"></div>
-                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse animation-delay-1000"></div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </ScrollArea>
       
-      <div className="p-3 border-t">
-        <form 
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSendMessage();
-          }}
-          className="flex gap-2"
-        >
+      <div className="border-t p-3">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            onClick={handleExecuteAction}
+            disabled={!actionId}
+          >
+            <Play className="h-4 w-4" />
+          </Button>
+          
           <Input
-            placeholder="Type your message..."
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            onChange={e => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message..."
             className="flex-1"
           />
-          <Button 
-            type="submit" 
+          
+          <Button
+            variant="default"
             size="icon"
-            disabled={!inputValue.trim() || isTyping}
+            className="shrink-0"
+            onClick={handleSendMessage}
+            disabled={!inputValue.trim()}
           >
-            <Send className="h-4 w-4" />
+            <SendHorizonal className="h-4 w-4" />
           </Button>
-        </form>
+        </div>
       </div>
-    </div>
+    </Card>
   );
 };
 

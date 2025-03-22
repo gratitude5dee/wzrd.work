@@ -1,5 +1,5 @@
 
-import { Browser, Terminal, Session } from '@e2b/sdk';
+import { Session, Browser, Terminal } from '@e2b/sdk';
 
 // Configuration for E2B
 const E2B_API_KEY = import.meta.env.VITE_E2B_API_KEY || '';

@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import e2bManager, { ExecutionStatus } from '@/services/e2bService';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils'; // Added the missing import for cn
 
 interface SandboxEnvironmentProps {
   isInitialized: boolean;
