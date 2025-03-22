@@ -1,6 +1,6 @@
 # WZRD.WORK
 
-**AI-Powered Workflow Capture and Analysis System**
+**Digital Knowledge Worker Agents**
 
 WZRD.WORK is an AI-driven platform designed to observe, learn from, and augment knowledge workers' computer interactions. By capturing screen recordings through Screepipe, reasoning about user actions with the Computer Use API (e2b surf), and facilitating real-time communication via Tavus and ElevenLabs, WZRD.WORK enables enhanced digital productivity through contextual understanding of user behavior.
 
