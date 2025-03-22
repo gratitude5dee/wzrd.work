@@ -9,7 +9,118 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      screen_recordings: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          raw_data: Json | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          raw_data?: Json | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          raw_data?: Json | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      workflow_actions: {
+        Row: {
+          action_data: Json | null
+          action_type: string
+          confidence_score: number | null
+          created_at: string
+          id: string
+          understanding_id: string
+        }
+        Insert: {
+          action_data?: Json | null
+          action_type: string
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          understanding_id: string
+        }
+        Update: {
+          action_data?: Json | null
+          action_type?: string
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          understanding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_actions_understanding_id_fkey"
+            columns: ["understanding_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_understandings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_understandings: {
+        Row: {
+          actions_identified: number | null
+          analysis_summary: string | null
+          created_at: string
+          gemini_response: Json | null
+          id: string
+          processed_data: Json | null
+          recording_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actions_identified?: number | null
+          analysis_summary?: string | null
+          created_at?: string
+          gemini_response?: Json | null
+          id?: string
+          processed_data?: Json | null
+          recording_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          actions_identified?: number | null
+          analysis_summary?: string | null
+          created_at?: string
+          gemini_response?: Json | null
+          id?: string
+          processed_data?: Json | null
+          recording_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_understandings_recording_id_fkey"
+            columns: ["recording_id"]
+            isOneToOne: false
+            referencedRelation: "screen_recordings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

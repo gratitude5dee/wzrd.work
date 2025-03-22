@@ -10,6 +10,9 @@ import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import RecordingsPage from "./pages/RecordingsPage";
+import NewRecordingPage from "./pages/NewRecordingPage";
+import RecordingDetailsPage from "./pages/RecordingDetailsPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 import React from "react"; // Added explicit React import
@@ -58,6 +61,32 @@ const App = () => {
                 element={
                   <ProtectedRoute>
                     <Dashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Recording routes */}
+              <Route 
+                path="/dashboard/recordings" 
+                element={
+                  <ProtectedRoute>
+                    <RecordingsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/dashboard/recordings/new" 
+                element={
+                  <ProtectedRoute>
+                    <NewRecordingPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/dashboard/recordings/:id" 
+                element={
+                  <ProtectedRoute>
+                    <RecordingDetailsPage />
                   </ProtectedRoute>
                 } 
               />
