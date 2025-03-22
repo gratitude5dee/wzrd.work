@@ -154,22 +154,31 @@ export function useActionAnalytics(actionId?: string) {
         
         if (error) throw error;
         
-        // Ensure data exists and is valid
-        if (!data || !Array.isArray(data)) return [];
+        // Handle potentially undefined or null data
+        if (!data) return [];
         
-        // First, filter for valid items
-        const validItems = data.filter(item => 
-          item !== null && 
-          typeof item === 'object' && 
-          'action_id' in item && 
-          typeof item.action_id === 'string'
-        );
+        // Create a type-safe array by explicitly checking each item's structure
+        const validItems: { action_id: string }[] = [];
         
-        // Now we can safely extract action IDs
+        // Loop through the data array and validate each item
+        for (const item of data) {
+          // Skip null items
+          if (item === null) continue;
+          
+          // Check if item is an object with an action_id property that's a string
+          if (typeof item === 'object' && 
+              item !== null && 
+              'action_id' in item && 
+              typeof item.action_id === 'string') {
+            validItems.push({ action_id: item.action_id });
+          }
+        }
+        
+        // Now we can safely work with validItems
         const actionIds = validItems
           .filter(item => item.action_id !== action.id)
           .slice(0, limit)
-          .map(item => item.action_id as string);
+          .map(item => item.action_id);
         
         if (actionIds.length === 0) return [];
         
