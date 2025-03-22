@@ -8,8 +8,19 @@ const ActPage: React.FC = () => {
   return (
     <DashboardLayout>
       <FadeIn>
-        <div className="flex flex-col gap-6 h-[calc(100vh-120px)]">
-          <ActInterface />
+        <div className="flex flex-col gap-6">
+          <div className="aspect-video w-full rounded-lg overflow-hidden border border-border">
+            <iframe
+              src="https://tavus.daily.co/c07bac772d2a"
+              className="w-full h-full"
+              allow="camera; microphone; fullscreen; speaker; display-capture"
+              title="Tavus Meeting"
+            />
+          </div>
+          
+          <div className="flex flex-col gap-6 h-[calc(100vh-400px)]">
+            <ActInterface />
+          </div>
         </div>
       </FadeIn>
     </DashboardLayout>

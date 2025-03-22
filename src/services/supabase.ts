@@ -130,7 +130,7 @@ export const executeAction = async (
  */
 export const getExecutionStatus = async (executionId: string): Promise<{
   status: string;
-  progress?: number;
+  progress: number;
   output?: string;
   error?: string;
 }> => {
