@@ -28,15 +28,15 @@ export async function calculateProjectedSavings(userId: string, timeframe: 'mont
     }
     
     // Group logs by date
-    type LogsByDate = Record<string, Array<any>>;
-    const logsByDate = executionLogs.reduce((acc: LogsByDate, log) => {
+    const logsByDate: Record<string, Array<any>> = {};
+    
+    executionLogs.forEach(log => {
       const date = new Date(log.created_at).toDateString();
-      if (!acc[date]) {
-        acc[date] = [];
+      if (!logsByDate[date]) {
+        logsByDate[date] = [];
       }
-      acc[date].push(log);
-      return acc;
-    }, {} as LogsByDate);
+      logsByDate[date].push(log);
+    });
     
     // Calculate daily average time saved
     const dailyTimeSaved = Object.entries(logsByDate).map(([date, logs]) => {

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -154,31 +153,24 @@ export function useActionAnalytics(actionId?: string) {
         
         if (error) throw error;
         
-        // Create a type-safe array for storing valid items
+        // Create a safe array for storing valid items
         const validItems: { action_id: string }[] = [];
         
-        // Check if data is not null or undefined
-        if (data) {
-          // Loop through each item in data array
-          for (let i = 0; i < data.length; i++) {
-            const currentItem = data[i];
+        // Check if data exists and is an array
+        if (data && Array.isArray(data)) {
+          // Loop through each item safely
+          for (const item of data) {
+            // Skip null/undefined items
+            if (!item) continue;
             
-            // Skip null or undefined items
-            if (currentItem === null || currentItem === undefined) continue;
-            
-            // Verify the item is an object with the expected structure
-            if (
-              typeof currentItem === 'object' &&
-              'action_id' in currentItem &&
-              typeof currentItem.action_id === 'string'
-            ) {
-              validItems.push({ action_id: currentItem.action_id });
+            // Make sure action_id exists and is a string
+            if (typeof item === 'object' && item !== null && 'action_id' in item && typeof item.action_id === 'string') {
+              validItems.push({ action_id: item.action_id });
             }
           }
         }
         
-        // Now we can safely work with validItems - no need for additional null checks
-        // since we've already validated each item before adding it to validItems
+        // Now we can safely work with validItems
         const actionIds = validItems
           .filter(item => item.action_id !== action.id)
           .slice(0, limit)
