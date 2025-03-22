@@ -54,15 +54,17 @@ export const getActionExecutions = async (userId: string): Promise<ExecutionLog[
       let outputValue = '';
       
       if (item.execution_data) {
-        const execData = typeof item.execution_data === 'object' 
-          ? item.execution_data 
-          : (typeof item.execution_data === 'string' 
-              ? JSON.parse(item.execution_data) 
-              : null);
+        try {
+          const execData = typeof item.execution_data === 'string' 
+            ? JSON.parse(item.execution_data) 
+            : item.execution_data;
               
-        if (execData && typeof execData === 'object') {
-          inputValue = execData.input || '';
-          outputValue = execData.output || '';
+          if (execData) {
+            inputValue = execData.input || '';
+            outputValue = execData.output || '';
+          }
+        } catch (e) {
+          console.error('Error parsing execution data:', e);
         }
       }
       
@@ -126,7 +128,7 @@ export const executeAction = async (
  */
 export const getExecutionStatus = async (executionId: string): Promise<{
   status: string;
-  progress: number;
+  progress?: number;
   output?: string;
   error?: string;
 }> => {
@@ -142,23 +144,41 @@ export const getExecutionStatus = async (executionId: string): Promise<{
     // Extract output from execution data if available
     let output = '';
     let outputError = '';
+    let progressValue = 0;
     
     if (data.execution_data) {
-      const execData = typeof data.execution_data === 'object' 
-        ? data.execution_data 
-        : (typeof data.execution_data === 'string' 
-            ? JSON.parse(data.execution_data) 
-            : null);
-            
-      if (execData && typeof execData === 'object') {
-        output = execData.output || '';
-        outputError = execData.error || '';
+      try {
+        const execData = typeof data.execution_data === 'string' 
+          ? JSON.parse(data.execution_data) 
+          : data.execution_data;
+                
+        if (execData) {
+          output = execData.output || '';
+          outputError = execData.error || '';
+          // Use progress from execution_data if available
+          if (typeof execData.progress === 'number') {
+            progressValue = execData.progress;
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing execution data:', e);
+      }
+    }
+    
+    // Calculate progress based on status if not available in execution_data
+    if (progressValue === 0) {
+      if (data.status === 'completed') {
+        progressValue = 100;
+      } else if (data.status === 'running') {
+        progressValue = 50;
+      } else if (data.status === 'started') {
+        progressValue = 10;
       }
     }
     
     return {
       status: data.status || 'unknown',
-      progress: data.progress || 0,
+      progress: progressValue,
       output,
       error: data.error_message || outputError || undefined
     };
