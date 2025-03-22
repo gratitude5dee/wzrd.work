@@ -2,12 +2,30 @@
 import { useState, useEffect, useCallback } from 'react';
 import { calculateTimelineData } from '@/services/timeSavedService';
 import { getActionExecutions, getActions } from '@/services/supabase';
-import { Tables } from '@/integrations/supabase/types';
 
-export interface ActionData extends Tables<'workflow_actions'> {}
+export interface ActionData {
+  id: string;
+  created_at: string;
+  user_id: string;
+  name: string;
+  description: string;
+  pattern: string[];
+  script: string;
+  success_rate: number;
+  average_execution_time: number;
+  category: string;
+}
 
-export interface ExecutionLog extends Tables<'action_executions'> {
-  workflow_actions?: Pick<ActionData, 'name' | 'description'>;
+export interface ExecutionLog {
+  id: string;
+  created_at: string;
+  action_id: string;
+  user_id: string;
+  success: boolean;
+  time_saved: number;
+  execution_time: number;
+  input: string;
+  output: string;
 }
 
 export interface TimelineDataPoint {
@@ -53,22 +71,22 @@ export const getRelatedActions = (actionId: string, allActions: ActionData[]): A
   const action = allActions.find(a => a.id === actionId);
   if (!action) return [];
 
-  // Find actions with similar tags or patterns
-  const relatedByTags = allActions.filter(item => {
+  // Find actions with similar patterns
+  const relatedByPattern = allActions.filter(item => {
     if (!item || !action) return false;
     return item.id !== actionId && 
-           item.tags && 
-           action.tags && 
-           item.tags.some(tag => action.tags?.includes(tag));
+           item.pattern && 
+           action.pattern && 
+           item.pattern.some(p => action.pattern.includes(p));
   });
 
-  // Sort by confidence score
-  const sortedActions = relatedByTags.sort((a, b) => {
-    const confidenceRateDiff = (b.confidence_score || 0) - (a.confidence_score || 0);
-    if (confidenceRateDiff !== 0) {
-      return confidenceRateDiff;
+  // Sort by success rate and execution time
+  const sortedActions = relatedByPattern.sort((a, b) => {
+    const successRateDiff = b.success_rate - a.success_rate;
+    if (successRateDiff !== 0) {
+      return successRateDiff;
     }
-    return (a.estimated_time_seconds || 0) - (b.estimated_time_seconds || 0);
+    return a.average_execution_time - b.average_execution_time;
   });
 
   return sortedActions;
@@ -106,21 +124,11 @@ const useActionAnalytics = (userId: string | undefined) => {
         // Calculate analytics
         const totalActions = actions.length;
         const totalExecutions = executions.length;
-        const successfulExecutions = executions.filter(log => log.status === 'completed').length;
+        const successfulExecutions = executions.filter(log => log.success).length;
         const overallSuccessRate = totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0;
 
-        // Estimate time saved and execution time from existing data
-        const totalTimeSaved = executions.reduce((sum, log) => {
-          const timeEstimate = log.workflow_actions?.[0]?.estimated_time_seconds || 0;
-          return sum + timeEstimate;
-        }, 0);
-
-        const totalExecutionTime = executions.reduce((sum, log) => {
-          // Estimate execution time if not directly available
-          const estimatedTime = log.workflow_actions?.[0]?.estimated_time_seconds || 0;
-          return sum + estimatedTime;
-        }, 0);
-
+        const totalTimeSaved = executions.reduce((sum, log) => sum + (log.time_saved || 0), 0);
+        const totalExecutionTime = executions.reduce((sum, log) => sum + log.execution_time, 0);
         const averageExecutionTime = totalExecutions > 0 ? totalExecutionTime / totalExecutions : 0;
 
         // Set user analytics data
@@ -134,12 +142,7 @@ const useActionAnalytics = (userId: string | undefined) => {
         });
 
         // Calculate timeline data for usage patterns
-        const timelineData = calculateTimelineData(
-          executions.map(log => ({
-            ...log,
-            created_at: log.created_at || new Date().toISOString()
-          }))
-        );
+        const timelineData = calculateTimelineData(executions);
 
         // Structure execution times for chart
         const executionTimes = timelineData.map(item => ({
@@ -158,11 +161,11 @@ const useActionAnalytics = (userId: string | undefined) => {
         const successRates = timelineData.map(item => {
           // Calculate success rate for this date
           const dateExecutions = executions.filter(log => {
-            const logDate = new Date(log.created_at || '').toISOString().split('T')[0];
+            const logDate = new Date(log.created_at).toISOString().split('T')[0];
             return logDate === item.date;
           });
           
-          const successCount = dateExecutions.filter(log => log.status === 'completed').length;
+          const successCount = dateExecutions.filter(log => log.success).length;
           const rate = dateExecutions.length > 0 ? (successCount / dateExecutions.length) * 100 : 0;
           
           return {
@@ -211,13 +214,14 @@ const useActionAnalytics = (userId: string | undefined) => {
     
     if (actionLogs.length === 0) return null;
     
-    const successCount = actionLogs.filter(log => log.status === 'completed').length;
+    const successCount = actionLogs.filter(log => log.success).length;
     const successRate = (successCount / actionLogs.length) * 100;
-    const estimatedTime = actionLogs[0].workflow_actions?.[0]?.estimated_time_seconds || 0;
+    const timeSaved = actionLogs.reduce((sum, log) => sum + (log.time_saved || 0), 0);
+    const executionTime = actionLogs.reduce((sum, log) => sum + log.execution_time, 0) / actionLogs.length;
     
     return {
-      timeSaved: estimatedTime * successCount,
-      executionTime: estimatedTime,
+      timeSaved,
+      executionTime,
       successRate,
       automationLevel: Math.min(90, 30 + successRate / 2), // Estimate based on success rate
       executionCount: actionLogs.length
