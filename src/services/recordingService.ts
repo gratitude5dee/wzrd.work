@@ -157,10 +157,10 @@ export function useRecordingStatus(id: string) {
       return data as Pick<ScreenRecording, 'id' | 'status' | 'updated_at'>;
     },
     enabled: !!id,
-    refetchInterval: (data) => {
+    refetchInterval: (queryData) => {
       // Poll every 5 seconds if status is pending or processing
       // Fixed the data access pattern to get the status properly
-      if (data?.data && (data.data.status === 'pending' || data.data.status === 'processing')) {
+      if (queryData && (queryData.status === 'pending' || queryData.status === 'processing')) {
         return 5000;
       }
       return false;

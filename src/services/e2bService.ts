@@ -1,5 +1,5 @@
 
-import { Session, Browser, Terminal } from '@e2b/sdk';
+import * as e2b from '@e2b/sdk';
 
 // Configuration for E2B
 const E2B_API_KEY = import.meta.env.VITE_E2B_API_KEY || '';
@@ -22,9 +22,9 @@ export interface ExecutionStatus {
 
 // Class to manage the E2B session
 export class E2BManager {
-  private session: Session | null = null;
-  private browser: Browser | null = null;
-  private terminal: Terminal | null = null;
+  private session: e2b.Session | null = null;
+  private browser: e2b.Browser | null = null;
+  private terminal: e2b.Terminal | null = null;
   private executionStatus: ExecutionStatus = {
     running: false,
     currentStep: 0,
@@ -41,7 +41,7 @@ export class E2BManager {
       }
 
       // Create a new E2B session
-      this.session = await Session.create({
+      this.session = await e2b.Session.create({
         apiKey: E2B_API_KEY,
         template: 'base',
       });
