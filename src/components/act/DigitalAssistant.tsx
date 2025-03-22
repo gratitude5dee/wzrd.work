@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { useDigitalAssistant, Message } from '@/hooks/use-digital-assistant';
+import CheckpointDialog from './checkpoint/CheckpointDialog';
+import SuccessDialog from './success/SuccessDialog';
+import { useCheckpoints } from '@/hooks/use-checkpoints';
+import { useActionAnalytics } from '@/hooks/use-action-analytics';
+import { toast } from '@/hooks/use-toast';
 
 interface DigitalAssistantProps {
   actionId?: string;
@@ -26,10 +31,92 @@ const DigitalAssistant: React.FC<DigitalAssistantProps> = ({ actionId, onExecute
     isTyping,
     videoGeneration,
     handleSendMessage,
-    handleKeyDown
+    handleKeyDown,
+    sendMessage
   } = useDigitalAssistant({ 
-    onExecuteAction: onExecuteAction ? async () => onExecuteAction() : undefined 
+    onExecuteAction: onExecuteAction ? async () => {
+      // When executing an action, first show a checkpoint
+      showActionCheckpoint();
+    } : undefined 
   });
+
+  // Checkpoint system integration
+  const {
+    isCheckpointOpen,
+    currentCheckpoint,
+    showCheckpoint,
+    handleProceed,
+    handleModify,
+    handleCancel,
+    closeCheckpoint
+  } = useCheckpoints({ actionId });
+
+  // Success page and analytics integration
+  const {
+    isSuccessDialogOpen,
+    currentSummary,
+    showSuccessDialog,
+    closeSuccessDialog,
+    getActionMetrics
+  } = useActionAnalytics({ actionId });
+
+  // Function to show a checkpoint for action execution
+  const showActionCheckpoint = () => {
+    showCheckpoint(
+      {
+        title: "Confirm Action Execution",
+        description: "You're about to execute an automated workflow that will interact with your system. Please confirm you want to proceed.",
+        severity: "info",
+        actionName: "Document Processing Workflow"
+      },
+      {
+        onProceed: async () => {
+          toast({
+            title: "Action execution started",
+            description: "The digital assistant will guide you through each step"
+          });
+          
+          // Add a message from the assistant acknowledging the action
+          sendMessage("I'm starting the document processing workflow now. I'll guide you through each step and keep you informed of progress.");
+          
+          // Execute the action
+          if (onExecuteAction) await onExecuteAction();
+          
+          // After some time, simulate a completion and show success dialog
+          setTimeout(() => {
+            showSuccessDialog({
+              id: actionId || "default-action",
+              name: "Document Processing Workflow",
+              description: "Successfully processed and categorized all documents in the inbox folder.",
+              completedSteps: 5,
+              totalSteps: 5,
+              metrics: {
+                timeSaved: 120, // 2 minutes saved
+                executionTime: 30, // 30 seconds to execute
+                successRate: 100,
+                automationLevel: 90
+              },
+              relatedActions: [
+                { id: "action-1", name: "Send Processed Documents" },
+                { id: "action-2", name: "Generate Summary Report" }
+              ]
+            });
+          }, 5000);
+        },
+        onModify: () => {
+          // Send a message to the assistant about modifying the action
+          sendMessage("I'd like to modify how this action works before running it.");
+        },
+        onCancel: () => {
+          toast({
+            title: "Action cancelled",
+            description: "The workflow execution has been cancelled",
+            variant: "destructive"
+          });
+        }
+      }
+    );
+  };
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -46,6 +133,29 @@ const DigitalAssistant: React.FC<DigitalAssistantProps> = ({ actionId, onExecute
       videoRef.current.play().catch(err => console.error("Video play error:", err));
     }
   }, [messages]);
+
+  // Function to handle running an action again from the success dialog
+  const handleRunAgain = () => {
+    closeSuccessDialog();
+    showActionCheckpoint();
+  };
+
+  // Function to handle modifying an action from the success dialog
+  const handleModifyAction = () => {
+    closeSuccessDialog();
+    // This would open action editing UI
+    sendMessage("I'd like to help you modify this action to better suit your needs. What changes would you like to make?");
+  };
+
+  // Function to handle sharing results from the success dialog
+  const handleShareResults = () => {
+    closeSuccessDialog();
+    // This would open a share dialog
+    toast({
+      title: "Share feature",
+      description: "Sharing functionality would be implemented here",
+    });
+  };
 
   return (
     <Card className="flex flex-col h-full border rounded-md overflow-hidden">
@@ -116,7 +226,7 @@ const DigitalAssistant: React.FC<DigitalAssistantProps> = ({ actionId, onExecute
             variant="outline"
             size="icon"
             className="shrink-0"
-            onClick={onExecuteAction}
+            onClick={() => showActionCheckpoint()}
             disabled={!actionId}
           >
             <Play className="h-4 w-4" />
@@ -141,11 +251,35 @@ const DigitalAssistant: React.FC<DigitalAssistantProps> = ({ actionId, onExecute
           </Button>
         </div>
       </div>
+
+      {/* Checkpoint Dialog */}
+      {currentCheckpoint && (
+        <CheckpointDialog
+          isOpen={isCheckpointOpen}
+          options={currentCheckpoint}
+          onProceed={handleProceed}
+          onModify={handleModify}
+          onCancel={handleCancel}
+          onClose={closeCheckpoint}
+        />
+      )}
+
+      {/* Success Dialog */}
+      {currentSummary && (
+        <SuccessDialog
+          isOpen={isSuccessDialogOpen}
+          onClose={closeSuccessDialog}
+          onRunAgain={handleRunAgain}
+          onModify={handleModifyAction}
+          onShare={handleShareResults}
+          summary={currentSummary}
+        />
+      )}
     </Card>
   );
 };
 
-// Message Bubble Component
+// Message Bubble Component - kept the same
 const MessageBubble: React.FC<{ message: Message }> = ({ message }) => {
   const isUser = message.sender === 'user';
   
