@@ -14,6 +14,7 @@ import RecordingsPage from "./pages/RecordingsPage";
 import NewRecordingPage from "./pages/NewRecordingPage";
 import RecordingDetailsPage from "./pages/RecordingDetailsPage";
 import ActPage from "./pages/ActPage";
+import ActivityPage from "./pages/ActivityPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 import React from "react"; // Added explicit React import
@@ -98,6 +99,16 @@ const App = () => {
                 element={
                   <ProtectedRoute>
                     <ActPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Activity route */}
+              <Route 
+                path="/dashboard/activity" 
+                element={
+                  <ProtectedRoute>
+                    <ActivityPage />
                   </ProtectedRoute>
                 } 
               />
