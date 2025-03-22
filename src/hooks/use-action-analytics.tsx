@@ -160,7 +160,7 @@ export function useActionAnalytics(actionId?: string) {
         const actionIds = data
           .filter(item => item && typeof item === 'object' && item.action_id !== action.id)
           .slice(0, limit)
-          .map(item => item?.action_id)
+          .map(item => item && typeof item === 'object' ? item.action_id : null)
           .filter(Boolean) as string[]; // Type assertion after filtering nulls
         
         if (actionIds.length === 0) return [];

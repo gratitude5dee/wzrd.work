@@ -65,7 +65,8 @@ export function useUserPreferences() {
               checkpoint_frequency: insertData.checkpoint_frequency as CheckpointFrequency,
               created_at: insertData.created_at ? new Date(insertData.created_at) : undefined,
               updated_at: insertData.updated_at ? new Date(insertData.updated_at) : undefined,
-              saved_decisions: insertData.saved_decisions || {}
+              saved_decisions: insertData.saved_decisions ? 
+                (typeof insertData.saved_decisions === 'object' ? insertData.saved_decisions : {}) : {}
             };
             setPreferences(typedPreferences);
           }
@@ -79,7 +80,8 @@ export function useUserPreferences() {
           checkpoint_frequency: data.checkpoint_frequency as CheckpointFrequency,
           created_at: data.created_at ? new Date(data.created_at) : undefined,
           updated_at: data.updated_at ? new Date(data.updated_at) : undefined,
-          saved_decisions: data.saved_decisions || {}
+          saved_decisions: data.saved_decisions ? 
+            (typeof data.saved_decisions === 'object' ? data.saved_decisions : {}) : {}
         };
         setPreferences(typedPreferences);
       }

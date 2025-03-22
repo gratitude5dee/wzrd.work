@@ -42,18 +42,14 @@ export function useCheckpoints() {
 
   const generateCheckpointsFromAction = useCallback((action: WorkflowAction): Checkpoint[] => {
     // Add a safe check for the checkpoint_config property
-    // If it doesn't exist, we'll just generate default checkpoints
-    const hasCheckpointConfig = action.hasOwnProperty('checkpoint_config') && 
-                               action.checkpoint_config &&
-                               typeof action.checkpoint_config === 'object';
+    // Use type assertion to access the property that might not be in the type definition
+    const actionWithConfig = action as WorkflowAction & { checkpoint_config?: { checkpoints: any[] } };
     
-    if (hasCheckpointConfig && (action as any).checkpoint_config && 
-        (action as any).checkpoint_config.checkpoints && 
-        Array.isArray((action as any).checkpoint_config.checkpoints)) {
-      // Type assertion for TypeScript
-      const config = (action as any).checkpoint_config;
+    // Check if checkpoint_config exists and has valid checkpoints array
+    if (actionWithConfig.checkpoint_config && 
+        Array.isArray(actionWithConfig.checkpoint_config.checkpoints)) {
       
-      return config.checkpoints.map((cp: any, index: number) => ({
+      return actionWithConfig.checkpoint_config.checkpoints.map((cp: any, index: number) => ({
         id: `${action.id}-checkpoint-${index}`,
         title: cp.title || `Checkpoint ${index + 1}`,
         description: cp.description || 'Please review this step before proceeding.',

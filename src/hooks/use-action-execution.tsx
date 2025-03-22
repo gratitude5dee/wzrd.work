@@ -41,11 +41,20 @@ export function useActionExecution() {
     try {
       const startTime = new Date();
       // Create the execution log object with proper typing
-      const executionLog: Record<string, any> = {
+      const executionLog: {
+        action_id: string;
+        user_id: string;
+        status: ExecutionStatus;
+        start_time: string;
+        checkpoints_shown: number;
+        checkpoints_modified: number;
+        checkpoints_cancelled: number;
+        execution_data?: any;
+      } = {
         action_id: action.id,
         user_id: user.id,
-        status: 'started' as ExecutionStatus,
-        start_time: startTime.toISOString(), // Always use ISO string for Supabase
+        status: 'started',
+        start_time: startTime.toISOString(),
         checkpoints_shown: 0,
         checkpoints_modified: 0,
         checkpoints_cancelled: 0,
