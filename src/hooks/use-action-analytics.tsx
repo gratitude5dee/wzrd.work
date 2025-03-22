@@ -161,18 +161,18 @@ export function useActionAnalytics(actionId?: string) {
         if (data) {
           // Loop through each item in data array
           for (let i = 0; i < data.length; i++) {
-            const item = data[i];
+            const currentItem = data[i];
             
             // Skip null or undefined items
-            if (item === null || item === undefined) continue;
+            if (currentItem === null || currentItem === undefined) continue;
             
             // Verify the item is an object with the expected structure
             if (
-              typeof item === 'object' &&
-              'action_id' in item &&
-              typeof item.action_id === 'string'
+              typeof currentItem === 'object' &&
+              'action_id' in currentItem &&
+              typeof currentItem.action_id === 'string'
             ) {
-              validItems.push({ action_id: item.action_id });
+              validItems.push({ action_id: currentItem.action_id });
             }
           }
         }

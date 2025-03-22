@@ -1,6 +1,5 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { UsagePatternData } from '@/hooks/use-action-analytics';
 
 /**
  * Calculate a projection of time saved based on current patterns
@@ -29,19 +28,20 @@ export async function calculateProjectedSavings(userId: string, timeframe: 'mont
     }
     
     // Group logs by date
-    const logsByDate = executionLogs.reduce((acc, log) => {
+    type LogsByDate = Record<string, Array<any>>;
+    const logsByDate = executionLogs.reduce((acc: LogsByDate, log) => {
       const date = new Date(log.created_at).toDateString();
       if (!acc[date]) {
         acc[date] = [];
       }
       acc[date].push(log);
       return acc;
-    }, {} as Record<string, any[]>);
+    }, {} as LogsByDate);
     
     // Calculate daily average time saved
     const dailyTimeSaved = Object.entries(logsByDate).map(([date, logs]) => {
       const timeSaved = logs.reduce((sum, log) => {
-        return sum + (log.time_saved || 0);
+        return sum + (log.duration_seconds || 0);
       }, 0);
       return { date, timeSaved };
     });
@@ -140,7 +140,7 @@ export async function getTimeSavedByCategory(userId: string) {
         actionIds.includes(log.action_id) && log.status === 'completed'
       );
       
-      const timeSaved = categoryLogs.reduce((sum, log) => sum + (log.time_saved || 0), 0);
+      const timeSaved = categoryLogs.reduce((sum, log) => sum + (log.duration_seconds || 0), 0);
       
       return {
         category,
@@ -198,7 +198,7 @@ export async function getUserMilestones(userId: string) {
     const markedMilestones = milestones.map(milestone => ({
       ...milestone,
       achieved: totalTimeSaved >= milestone.threshold,
-      date: milestone.achieved ? new Date().toISOString() : null
+      date: totalTimeSaved >= milestone.threshold ? new Date().toISOString() : null
     }));
     
     return {

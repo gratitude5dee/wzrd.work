@@ -113,8 +113,7 @@ const CategoryBreakdownPanel: React.FC<CategoryBreakdownPanelProps> = ({ userDat
                         <span className="text-sm">{formatTimeSaved(timeSaved)}</span>
                       </div>
                       <Progress value={category.value} className="h-2" style={{ 
-                        backgroundColor: `${category.color}30`,
-                        '--tw-bg-opacity': 0.2 
+                        backgroundColor: `${category.color}30`
                       }} />
                     </div>
                   );
@@ -172,8 +171,7 @@ const CategoryBreakdownPanel: React.FC<CategoryBreakdownPanelProps> = ({ userDat
                       <span className="font-medium">{formatTimeSaved(timeSaved)}</span>
                     </div>
                     <Progress value={percentRealized} className="h-2" style={{ 
-                      backgroundColor: `${category.color}30`,
-                      '--tw-bg-opacity': 0.2 
+                      backgroundColor: `${category.color}30`
                     }} />
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Potential additional savings</span>

@@ -267,7 +267,7 @@ const AchievementsPanel: React.FC<AchievementsPanelProps> = ({ userData }) => {
                 <div className="flex justify-between py-2">
                   <span className="font-medium">Estimated Annual Savings</span>
                   <span className="text-primary font-medium">
-                    {formatTimeSaved(userData.totalTimeSaved * 52 / Math.max(1, usagePatterns?.length || 1))}
+                    {formatTimeSaved(userData.totalTimeSaved * 52)}
                   </span>
                 </div>
               </div>
