@@ -1,4 +1,3 @@
-
 import { useCallback, useState, useEffect } from 'react';
 import { useAssistantMessages, Message } from './use-assistant-messages';
 import { useVideoGeneration } from './use-video-generation';
@@ -6,8 +5,7 @@ import { useResponseGeneration } from './use-response-generation';
 import { useUserPreferences } from './use-user-preferences';
 import { useCheckpoints, Checkpoint } from './use-checkpoints';
 import { useActionExecution } from './use-action-execution';
-import useActionAnalytics from './use-action-analytics';
-import { ActionSummary } from './use-action-analytics';
+import useActionAnalytics, { ActionSummary } from './use-action-analytics';
 import { useAvailableActions, WorkflowAction } from '@/services/recordingService';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -88,22 +86,17 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
   } = useActionExecution();
 
   const {
-    actionData,
-    userData,
-    usagePatterns,
-    isLoading: analyticsLoading,
+    userData, 
+    usagePatterns, 
+    loading: analyticsLoading, 
     error: analyticsError,
-    fetchActionAnalytics,
-    fetchUserAnalytics,
-    fetchUsagePatterns,
-    getRelatedActions,
-    // Add these missing properties from useActionAnalytics
-    getActionMetrics,
     isSuccessDialogOpen,
     currentSummary,
     showSuccessDialog,
-    closeSuccessDialog
-  } = useActionAnalytics();
+    closeSuccessDialog,
+    getActionMetrics,
+    getRelatedActions
+  } = useActionAnalytics(user?.id);
 
   const { user } = useAuth();
   const { data: availableActions } = useAvailableActions();

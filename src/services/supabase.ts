@@ -7,13 +7,14 @@ import { ActionData, ExecutionLog } from '@/hooks/use-action-analytics';
  */
 export const getActions = async (userId: string): Promise<ActionData[]> => {
   try {
+    // Using a type assertion to handle type issues with Supabase client
     const { data, error } = await supabase
-      .from('actions')
+      .from('workflow_actions')
       .select('*')
       .eq('user_id', userId);
       
     if (error) throw error;
-    return data || [];
+    return (data || []) as ActionData[];
   } catch (error) {
     console.error('Error fetching actions:', error);
     return [];
@@ -25,13 +26,14 @@ export const getActions = async (userId: string): Promise<ActionData[]> => {
  */
 export const getActionExecutions = async (userId: string): Promise<ExecutionLog[]> => {
   try {
+    // Using a type assertion to handle type issues with Supabase client
     const { data, error } = await supabase
-      .from('action_executions')
+      .from('execution_logs')
       .select('*')
       .eq('user_id', userId);
       
     if (error) throw error;
-    return data || [];
+    return (data || []) as ExecutionLog[];
   } catch (error) {
     console.error('Error fetching action executions:', error);
     return [];

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { calculateTimelineData } from '@/services/timeSavedService';
 import { getActionExecutions, getActions } from '@/services/supabase';
 
