@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { calculateTimelineData } from '@/services/timeSavedService';
 import { getActionExecutions, getActions } from '@/services/supabase';
@@ -45,6 +46,23 @@ export interface UserAnalyticsData {
 export interface UsagePatternData {
   timelineData: TimelineDataPoint[];
   executionTimes: { date: string; value: number; count: number }[];
+  executionCounts: { date: string; value: number; count: number }[];
+  successRates: { date: string; value: number; count: number }[];
+}
+
+export interface ActionSummary {
+  id: string;
+  name: string;
+  description: string;
+  completedSteps: number;
+  totalSteps: number;
+  metrics: {
+    timeSaved: number;
+    executionTime: number;
+    successRate: number;
+    automationLevel: number;
+  };
+  relatedActions?: { id: string; name: string }[];
 }
 
 export const getRelatedActions = (actionId: string, allActions: ActionData[]): ActionData[] => {
@@ -79,6 +97,8 @@ const useActionAnalytics = (userId: string | undefined) => {
   const [usagePatterns, setUsagePatterns] = useState<UsagePatternData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+  const [currentSummary, setCurrentSummary] = useState<ActionSummary | null>(null);
 
   useEffect(() => {
     if (!userId) {
@@ -131,10 +151,36 @@ const useActionAnalytics = (userId: string | undefined) => {
           count: item.count
         }));
 
+        // Create execution counts and success rates
+        const executionCounts = timelineData.map(item => ({
+          date: item.date,
+          value: item.count,
+          count: item.count
+        }));
+
+        const successRates = timelineData.map(item => {
+          // Calculate success rate for this date
+          const dateExecutions = executions.filter(log => {
+            const logDate = new Date(log.created_at).toISOString().split('T')[0];
+            return logDate === item.date;
+          });
+          
+          const successCount = dateExecutions.filter(log => log.success).length;
+          const rate = dateExecutions.length > 0 ? (successCount / dateExecutions.length) * 100 : 0;
+          
+          return {
+            date: item.date,
+            value: rate,
+            count: dateExecutions.length
+          };
+        });
+
         // Set usage patterns data
         setUsagePatterns({
           timelineData,
-          executionTimes
+          executionTimes,
+          executionCounts,
+          successRates
         });
 
       } catch (err: any) {
@@ -149,7 +195,51 @@ const useActionAnalytics = (userId: string | undefined) => {
 
   }, [userId]);
 
-  return { userData, usagePatterns, loading, error };
+  // Function to show success dialog
+  const showSuccessDialog = (summary: ActionSummary) => {
+    setCurrentSummary(summary);
+    setIsSuccessDialogOpen(true);
+  };
+
+  // Function to close success dialog
+  const closeSuccessDialog = () => {
+    setIsSuccessDialogOpen(false);
+  };
+
+  // Function to get metrics for a specific action
+  const getActionMetrics = (actionId: string) => {
+    if (!userData || !userData.executionLogs) return null;
+    
+    const actionLogs = userData.executionLogs.filter(log => log.action_id === actionId);
+    
+    if (actionLogs.length === 0) return null;
+    
+    const successCount = actionLogs.filter(log => log.success).length;
+    const successRate = (successCount / actionLogs.length) * 100;
+    const timeSaved = actionLogs.reduce((sum, log) => sum + (log.time_saved || 0), 0);
+    const executionTime = actionLogs.reduce((sum, log) => sum + log.execution_time, 0) / actionLogs.length;
+    
+    return {
+      timeSaved,
+      executionTime,
+      successRate,
+      automationLevel: Math.min(90, 30 + successRate / 2), // Estimate based on success rate
+      executionCount: actionLogs.length
+    };
+  };
+
+  return { 
+    userData, 
+    usagePatterns, 
+    loading, 
+    error,
+    isSuccessDialogOpen,
+    currentSummary,
+    showSuccessDialog,
+    closeSuccessDialog,
+    getActionMetrics,
+    getRelatedActions 
+  };
 };
 
 export default useActionAnalytics;

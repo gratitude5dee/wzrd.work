@@ -6,29 +6,23 @@ import TimeOverviewPanel from '@/components/time-saved/TimeOverviewPanel';
 import TimeJourneyPanel from '@/components/time-saved/TimeJourneyPanel';
 import CategoryBreakdownPanel from '@/components/time-saved/CategoryBreakdownPanel';
 import AchievementsPanel from '@/components/time-saved/AchievementsPanel';
-import { useActionAnalytics } from '@/hooks/use-action-analytics';
+import useActionAnalytics from '@/hooks/use-action-analytics';
 import { Loader2 } from 'lucide-react';
 
 const TimeSavedPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview');
-  const { userData, usagePatterns, isLoading, fetchUserAnalytics, fetchUsagePatterns } = useActionAnalytics();
+  const { userData, usagePatterns, loading: isLoading } = useActionAnalytics("current-user-id");
   const [timeframe, setTimeframe] = useState<'day' | 'week' | 'month'>('week');
-
-  useEffect(() => {
-    fetchUserAnalytics();
-    fetchUsagePatterns(timeframe);
-  }, [fetchUserAnalytics, fetchUsagePatterns, timeframe]);
 
   const handleTimeframeChange = (newTimeframe: 'day' | 'week' | 'month') => {
     setTimeframe(newTimeframe);
-    fetchUsagePatterns(newTimeframe);
   };
 
   return (
     <DashboardLayout>
       <div className="flex flex-col space-y-6">
         <div className="flex flex-col space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Time Saved</h1>
+          <h1 className="text-3xl font-bold tracking-tight gradient-text">Time Saved</h1>
           <p className="text-muted-foreground">
             Quantify and celebrate your productivity improvements gained through WZRD.WORK.
           </p>
@@ -40,7 +34,7 @@ const TimeSavedPage: React.FC = () => {
           </div>
         ) : (
           <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-4 glass-card">
               <TabsTrigger value="overview">Metrics Dashboard</TabsTrigger>
               <TabsTrigger value="journey">Optimization Journey</TabsTrigger>
               <TabsTrigger value="categories">Task Categories</TabsTrigger>
