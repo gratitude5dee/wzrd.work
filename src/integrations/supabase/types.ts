@@ -9,6 +9,100 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      analytics_data: {
+        Row: {
+          action_id: string | null
+          context: Json | null
+          created_at: string | null
+          id: string
+          metric_type: string
+          metric_value: number | null
+          user_id: string
+        }
+        Insert: {
+          action_id?: string | null
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          metric_type: string
+          metric_value?: number | null
+          user_id: string
+        }
+        Update: {
+          action_id?: string | null
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          metric_type?: string
+          metric_value?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_data_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      execution_logs: {
+        Row: {
+          action_id: string
+          checkpoints_cancelled: number | null
+          checkpoints_modified: number | null
+          checkpoints_shown: number | null
+          created_at: string | null
+          duration_seconds: number | null
+          end_time: string | null
+          error_message: string | null
+          execution_data: Json | null
+          id: string
+          start_time: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          action_id: string
+          checkpoints_cancelled?: number | null
+          checkpoints_modified?: number | null
+          checkpoints_shown?: number | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          end_time?: string | null
+          error_message?: string | null
+          execution_data?: Json | null
+          id?: string
+          start_time?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          action_id?: string
+          checkpoints_cancelled?: number | null
+          checkpoints_modified?: number | null
+          checkpoints_shown?: number | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          end_time?: string | null
+          error_message?: string | null
+          execution_data?: Json | null
+          id?: string
+          start_time?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execution_logs_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       screen_recordings: {
         Row: {
           created_at: string
@@ -42,29 +136,80 @@ export type Database = {
         }
         Relationships: []
       }
+      user_preferences: {
+        Row: {
+          checkpoint_frequency: string
+          created_at: string | null
+          id: string
+          importance_threshold: number
+          saved_decisions: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          checkpoint_frequency?: string
+          created_at?: string | null
+          id?: string
+          importance_threshold?: number
+          saved_decisions?: Json | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          checkpoint_frequency?: string
+          created_at?: string | null
+          id?: string
+          importance_threshold?: number
+          saved_decisions?: Json | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       workflow_actions: {
         Row: {
           action_data: Json | null
           action_type: string
+          checkpoint_config: Json | null
           confidence_score: number | null
           created_at: string
+          description: string | null
+          estimated_time_seconds: number | null
           id: string
+          instructions: string | null
+          name: string | null
+          tags: string[] | null
+          thumbnail_url: string | null
           understanding_id: string
         }
         Insert: {
           action_data?: Json | null
           action_type: string
+          checkpoint_config?: Json | null
           confidence_score?: number | null
           created_at?: string
+          description?: string | null
+          estimated_time_seconds?: number | null
           id?: string
+          instructions?: string | null
+          name?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
           understanding_id: string
         }
         Update: {
           action_data?: Json | null
           action_type?: string
+          checkpoint_config?: Json | null
           confidence_score?: number | null
           created_at?: string
+          description?: string | null
+          estimated_time_seconds?: number | null
           id?: string
+          instructions?: string | null
+          name?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
           understanding_id?: string
         }
         Relationships: [

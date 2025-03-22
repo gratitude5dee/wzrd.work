@@ -1,11 +1,33 @@
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useAssistantMessages, Message } from './use-assistant-messages';
 import { useVideoGeneration } from './use-video-generation';
 import { useResponseGeneration } from './use-response-generation';
+import { useUserPreferences } from './use-user-preferences';
+import { useCheckpoints } from './use-checkpoints';
+import { useActionExecution } from './use-action-execution';
+import { useAvailableActions, WorkflowAction } from '@/services/recordingService';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from '@/hooks/use-toast';
 
 interface UseDigitalAssistantProps {
   onExecuteAction?: (action: string) => Promise<void>;
+}
+
+export interface ActionSummary {
+  id: string;
+  name: string;
+  description: string;
+  completedSteps: number;
+  totalSteps: number;
+  metrics?: {
+    timeSaved: number;
+    executionTime: number;
+    successRate: number;
+    automationLevel: number;
+  };
+  relatedActions?: Array<{id: string, name: string}>;
 }
 
 export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProps = {}) {
@@ -18,7 +40,10 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
     setIsTyping,
     addMessage,
     updateMessage,
-    addWelcomeMessage
+    addWelcomeMessage,
+    addCheckpointMessage,
+    saveDecision,
+    getSavedDecision
   } = useAssistantMessages();
 
   const {
@@ -30,9 +55,39 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
 
   const {
     generateResponse,
+    generateActionResponse,
     createAssistantResponse,
-    createUserMessage
+    createUserMessage,
+    createCheckpointResponse,
+    createSuccessMessage
   } = useResponseGeneration();
+
+  const { preferences } = useUserPreferences();
+  
+  const {
+    currentCheckpoint,
+    showCheckpoint,
+    generateCheckpointsFromAction,
+    displayCheckpoint,
+    dismissCheckpoint
+  } = useCheckpoints();
+
+  const {
+    currentExecution,
+    isExecuting,
+    startExecution,
+    updateExecution,
+    completeExecution,
+    recordCheckpointInteraction
+  } = useActionExecution();
+
+  const { user } = useAuth();
+  const { data: availableActions } = useAvailableActions();
+  
+  const [selectedAction, setSelectedAction] = useState<WorkflowAction | null>(null);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [actionSummary, setActionSummary] = useState<ActionSummary | null>(null);
+  const [checkpoints, setCheckpoints] = useState<any[]>([]);
 
   // Load the available replicas on mount
   useEffect(() => {
@@ -47,6 +102,178 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
     }
   }, [replica, messages.length, addWelcomeMessage, generateVideoForMessage, updateMessage]);
 
+  // Find action based on user input
+  const findRelevantAction = useCallback((input: string) => {
+    if (!availableActions || availableActions.length === 0) return null;
+    
+    const inputLower = input.toLowerCase();
+    
+    // Look for exact matches in action names
+    const exactMatch = availableActions.find(action => 
+      action.name?.toLowerCase() === inputLower
+    );
+    
+    if (exactMatch) return exactMatch;
+    
+    // Look for partial matches in names and descriptions
+    const partialMatches = availableActions.filter(action => 
+      (action.name?.toLowerCase().includes(inputLower) || 
+       action.description?.toLowerCase().includes(inputLower))
+    );
+    
+    return partialMatches.length > 0 ? partialMatches[0] : null;
+  }, [availableActions]);
+
+  // Execute an action with checkpoints
+  const executeActionWithCheckpoints = useCallback(async (action: WorkflowAction) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "You need to be logged in to execute actions",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      // Start execution tracking
+      const execution = await startExecution(action);
+      if (!execution) return;
+      
+      // Set the action as selected
+      setSelectedAction(action);
+      
+      // Generate checkpoints for this action
+      const actionCheckpoints = generateCheckpointsFromAction(action);
+      setCheckpoints(actionCheckpoints);
+      
+      // Add a message indicating action execution is starting
+      const startMessage = createAssistantResponse(
+        `I'm starting execution of "${action.name || 'the action'}" now. I'll guide you through each step and ask for confirmation at important points.`
+      );
+      addMessage(startMessage);
+      generateVideoForMessage(startMessage, updateMessage);
+      
+      // Process checkpoints sequentially
+      let cancelled = false;
+      for (let i = 0; i < actionCheckpoints.length; i++) {
+        const checkpoint = actionCheckpoints[i];
+        
+        // Check saved decisions
+        const savedDecision = getSavedDecision(checkpoint.id);
+        if (savedDecision && savedDecision.action === 'proceed') {
+          // Skip checkpoint, user previously chose to auto-proceed
+          continue;
+        }
+        
+        // Show checkpoint
+        const checkpointMessage = addCheckpointMessage({
+          id: checkpoint.id,
+          title: checkpoint.title,
+          description: checkpoint.description,
+          actionData: checkpoint.actionData
+        });
+        
+        generateVideoForMessage(checkpointMessage, updateMessage);
+        
+        // Record that a checkpoint was shown
+        await recordCheckpointInteraction(execution.id, 'shown');
+        
+        // Wait for user response (simulated here)
+        // In a real implementation, this would await user input
+        // For demo purposes, we automatically proceed after a delay
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+      
+      if (cancelled) {
+        // Handle cancellation
+        await completeExecution(execution.id, 'cancelled');
+        
+        const cancelMessage = createAssistantResponse(
+          "Action execution has been cancelled. Let me know if you'd like to try again or if you need any assistance."
+        );
+        addMessage(cancelMessage);
+        generateVideoForMessage(cancelMessage, updateMessage);
+        return;
+      }
+      
+      // Execute the action via the edge function
+      const response = await supabase.functions.invoke('execute-action', {
+        body: {
+          actionId: action.id,
+          executionId: execution.id,
+          userId: user.id
+        }
+      });
+      
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to execute action');
+      }
+      
+      // Complete the execution
+      const { status, durationSeconds } = await completeExecution(execution.id, 'completed');
+      
+      // Create success message and show success dialog
+      const metrics = {
+        timeSaved: durationSeconds * 2, // Simplified estimate
+        executionTime: durationSeconds,
+        successRate: 100, // Simplified for this example
+        automationLevel: 80 // Simplified for this example
+      };
+      
+      const successMessage = createSuccessMessage(
+        action.name || 'Action',
+        metrics
+      );
+      addMessage(successMessage);
+      generateVideoForMessage(successMessage, updateMessage);
+      
+      // Prepare and show success dialog
+      const summary: ActionSummary = {
+        id: action.id,
+        name: action.name || 'Action',
+        description: action.description || 'Action completed successfully',
+        completedSteps: actionCheckpoints.length,
+        totalSteps: actionCheckpoints.length,
+        metrics: metrics,
+        relatedActions: availableActions
+          ?.filter(a => a.id !== action.id)
+          .slice(0, 3)
+          .map(a => ({ id: a.id, name: a.name || `Action ${a.id.slice(0, 8)}` }))
+      };
+      
+      setActionSummary(summary);
+      setShowSuccessDialog(true);
+    } catch (error) {
+      console.error("Error executing action:", error);
+      toast({
+        title: "Execution failed",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive"
+      });
+      
+      if (currentExecution) {
+        completeExecution(
+          currentExecution.id,
+          'failed',
+          error instanceof Error ? error.message : "Unknown error"
+        );
+      }
+      
+      const errorMessage = createAssistantResponse(
+        `I apologize, but there was an error executing the action: ${error instanceof Error ? error.message : "Unknown error occurred"}. Is there anything else I can help you with?`
+      );
+      addMessage(errorMessage);
+      generateVideoForMessage(errorMessage, updateMessage);
+    }
+  }, [
+    user, addMessage, startExecution, generateCheckpointsFromAction, 
+    getSavedDecision, addCheckpointMessage, generateVideoForMessage, 
+    updateMessage, recordCheckpointInteraction, completeExecution, 
+    createAssistantResponse, currentExecution, createSuccessMessage,
+    availableActions
+  ]);
+
   // Function to send a message as the user
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;
@@ -59,23 +286,108 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
     // Show typing indicator
     setIsTyping(true);
     
-    // Simulate assistant response (would be replaced with actual AI logic)
+    // Check if message is related to an action
+    const relevantAction = findRelevantAction(content);
+    
+    let responseContent = '';
+    if (relevantAction) {
+      responseContent = generateActionResponse(relevantAction);
+      setSelectedAction(relevantAction);
+    } else {
+      responseContent = generateResponse(content);
+    }
+    
+    // Create assistant response
+    const assistantMessage = createAssistantResponse(responseContent);
+    
+    // Simulate delay for natural conversation flow
     setTimeout(() => {
-      const assistantMessage = createAssistantResponse(generateResponse(content));
       addMessage(assistantMessage);
       setIsTyping(false);
       
       // Generate video for this message
       generateVideoForMessage(assistantMessage, updateMessage);
+      
+      // If this is an action execution request, start the action
+      if (
+        content.toLowerCase().includes('execute') || 
+        content.toLowerCase().includes('run') || 
+        content.toLowerCase().includes('start')
+      ) {
+        if (relevantAction) {
+          setTimeout(() => {
+            executeActionWithCheckpoints(relevantAction);
+          }, 2000);
+        }
+      }
     }, 1500);
   }, [
     addMessage, 
     setInputValue, 
     setIsTyping, 
-    createUserMessage, 
-    createAssistantResponse, 
+    findRelevantAction,
+    generateActionResponse, 
     generateResponse, 
+    createAssistantResponse, 
+    createUserMessage, 
     generateVideoForMessage, 
+    updateMessage,
+    executeActionWithCheckpoints
+  ]);
+
+  // Handle checkpoint response
+  const handleCheckpointResponse = useCallback((
+    checkpointId: string,
+    response: 'proceed' | 'modify' | 'cancel',
+    remember: boolean = false
+  ) => {
+    if (!currentExecution) return;
+    
+    if (response === 'proceed') {
+      // Record decision if requested
+      if (remember && checkpointId) {
+        saveDecision({
+          checkpointId,
+          action: 'proceed',
+          context: 'User chose to auto-proceed for this checkpoint',
+          timestamp: new Date()
+        });
+      }
+      
+      // Continue execution
+      dismissCheckpoint();
+    } else if (response === 'modify') {
+      // Record a checkpoint modification
+      recordCheckpointInteraction(currentExecution.id, 'modified');
+      
+      // Show modification UI (not implemented in this example)
+      dismissCheckpoint();
+      
+      // Add a message about the modification
+      const modifyMessage = createAssistantResponse(
+        "I've noted your request to modify this step. What changes would you like to make?"
+      );
+      addMessage(modifyMessage);
+      generateVideoForMessage(modifyMessage, updateMessage);
+    } else if (response === 'cancel') {
+      // Record a checkpoint cancellation
+      recordCheckpointInteraction(currentExecution.id, 'cancelled');
+      
+      // Cancel the execution
+      completeExecution(currentExecution.id, 'cancelled', 'Cancelled by user at checkpoint');
+      
+      dismissCheckpoint();
+      
+      // Add a message about the cancellation
+      const cancelMessage = createAssistantResponse(
+        "I've cancelled the action as requested. Is there anything else I can help you with?"
+      );
+      addMessage(cancelMessage);
+      generateVideoForMessage(cancelMessage, updateMessage);
+    }
+  }, [
+    currentExecution, saveDecision, dismissCheckpoint, recordCheckpointInteraction,
+    completeExecution, createAssistantResponse, addMessage, generateVideoForMessage,
     updateMessage
   ]);
 
@@ -94,6 +406,30 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
     }
   }, [handleSendMessage]);
 
+  // Handle success dialog actions
+  const handleSuccessDialogClose = useCallback(() => {
+    setShowSuccessDialog(false);
+  }, []);
+
+  const handleRunAgain = useCallback(() => {
+    setShowSuccessDialog(false);
+    if (selectedAction) {
+      setTimeout(() => {
+        executeActionWithCheckpoints(selectedAction);
+      }, 500);
+    }
+  }, [selectedAction, executeActionWithCheckpoints]);
+
+  const handleModifyAction = useCallback(() => {
+    setShowSuccessDialog(false);
+    // Implementation for modifying action would go here
+    const modifyMessage = createAssistantResponse(
+      "How would you like to modify this action? I can help you adjust specific steps or change parameters."
+    );
+    addMessage(modifyMessage);
+    generateVideoForMessage(modifyMessage, updateMessage);
+  }, [createAssistantResponse, addMessage, generateVideoForMessage, updateMessage]);
+
   return {
     messages,
     inputValue,
@@ -102,7 +438,20 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
     videoGeneration,
     handleSendMessage,
     handleKeyDown,
-    sendMessage
+    sendMessage,
+    // Checkpoint-related
+    currentCheckpoint,
+    showCheckpoint,
+    handleCheckpointResponse,
+    // Success dialog-related
+    showSuccessDialog,
+    actionSummary,
+    handleSuccessDialogClose,
+    handleRunAgain,
+    handleModifyAction,
+    // Action-related
+    isExecuting,
+    selectedAction
   };
 }
 
