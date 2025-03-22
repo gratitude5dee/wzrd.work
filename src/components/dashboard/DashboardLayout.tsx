@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -124,7 +125,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                 <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild tooltip="Activity">
-                      <a href="/dashboard/analytics">
+                      <a href="/dashboard/activity">
                         <Activity />
                         <span>Activity</span>
                       </a>
