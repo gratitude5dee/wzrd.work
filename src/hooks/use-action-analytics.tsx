@@ -154,21 +154,26 @@ export function useActionAnalytics(actionId?: string) {
         
         if (error) throw error;
         
-        // Get the action details - filter out nulls and check if data exists
+        // Make sure data exists and is an array before proceeding
         if (!data || !Array.isArray(data)) return [];
         
-        // First safely filter out any null or non-object items
-        const filteredData = data.filter(item => item !== null && typeof item === 'object');
+        // Create a safe array to work with by filtering out any invalid items
+        const safeData = data.filter(item => 
+          item !== null && 
+          typeof item === 'object' && 
+          'action_id' in item &&
+          typeof item.action_id === 'string'
+        );
         
-        // Then extract action_ids, ensuring they're not null and not equal to the current action id
-        const actionIds = filteredData
+        // Now extract the action IDs safely
+        const actionIds = safeData
           .filter(item => item.action_id !== action.id)
           .slice(0, limit)
-          .map(item => item.action_id)
-          .filter((id): id is string => id !== null && typeof id === 'string'); // Type guard to ensure we have a string[]
+          .map(item => item.action_id);
         
         if (actionIds.length === 0) return [];
         
+        // Fetch the action details
         const { data: actions, error: actionsError } = await supabase
           .from('workflow_actions')
           .select('*')
