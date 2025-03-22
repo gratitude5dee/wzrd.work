@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import ActionList from './ActionList';
 import SandboxEnvironment from './SandboxEnvironment';
-import ChatInterface from './ChatInterface';
+import DigitalAssistant from './DigitalAssistant';
 import ActionPreview from './ActionPreview';
 import { WorkflowAction } from '@/services/recordingService';
 import e2bManager, { ActionStep } from '@/services/e2bService';
@@ -161,7 +161,7 @@ const ActInterface: React.FC = () => {
                 <ResizableHandle withHandle />
                 
                 <ResizablePanel defaultSize={40}>
-                  <ChatInterface
+                  <DigitalAssistant
                     actionId={selectedAction?.id}
                     onExecuteAction={handleExecute}
                   />
