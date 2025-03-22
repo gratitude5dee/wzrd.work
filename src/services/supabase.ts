@@ -14,7 +14,8 @@ export const getActions = async (userId: string): Promise<ActionData[]> => {
       
     if (error) throw error;
     
-    // Transform the data to match the ActionData interface
+    // Transform the data to match the ActionData interface using explicit type annotation
+    // to prevent deep type instantiation
     const transformedData: ActionData[] = (data || []).map(item => ({
       id: item.id,
       created_at: item.created_at,
@@ -47,7 +48,8 @@ export const getActionExecutions = async (userId: string): Promise<ExecutionLog[
       
     if (error) throw error;
     
-    // Transform the data to match the ExecutionLog interface
+    // Transform the data to match the ExecutionLog interface using explicit type 
+    // annotation to prevent deep type instantiation
     const transformedData: ExecutionLog[] = (data || []).map(item => {
       // Handle execution_data parsing
       let inputValue = '';

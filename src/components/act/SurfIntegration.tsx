@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, RefreshCw, Maximize, X, PlayCircle } from 'lucide-react';
@@ -24,7 +23,7 @@ const SurfIntegration: React.FC<SurfIntegrationProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [executionStatus, setExecutionStatus] = useState<{
     status: string;
-    progress: number;
+    progress?: number; // Changed from required to optional to match getExecutionStatus return type
     output?: string;
     error?: string;
   } | null>(null);
@@ -214,7 +213,7 @@ const SurfIntegration: React.FC<SurfIntegrationProps> = ({
               Execution status: {executionStatus.status}
             </span>
             <span className="text-sm">
-              Progress: {executionStatus.progress}%
+              Progress: {executionStatus.progress || 0}%
             </span>
           </div>
           {executionStatus.error && (
