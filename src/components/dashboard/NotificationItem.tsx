@@ -1,17 +1,17 @@
 
 import React from 'react';
+import { Bell, CheckCircle2, AlertTriangle, Info, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Check, X } from 'lucide-react';
-
-export type NotificationType = 'info' | 'success' | 'warning' | 'error';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 export interface NotificationItemProps {
   id: string;
   title: string;
   message: string;
-  type: NotificationType;
-  time: string; // ISO string or formatted time
-  read?: boolean;
+  type: 'info' | 'success' | 'warning' | 'error';
+  time: string;
+  read: boolean;
   onMarkAsRead?: (id: string) => void;
   onDismiss?: (id: string) => void;
 }
@@ -22,75 +22,97 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   message,
   type,
   time,
-  read = false,
+  read,
   onMarkAsRead,
   onDismiss
 }) => {
-  const typeStyles = {
-    info: 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800',
-    success: 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800',
-    warning: 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800',
-    error: 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800',
-  };
-
-  const timeAgo = (timeString: string) => {
-    try {
-      const date = new Date(timeString);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffMins = Math.round(diffMs / 60000);
-      
-      if (diffMins < 1) return 'just now';
-      if (diffMins < 60) return `${diffMins}m ago`;
-      
-      const diffHours = Math.floor(diffMins / 60);
-      if (diffHours < 24) return `${diffHours}h ago`;
-      
-      const diffDays = Math.floor(diffHours / 24);
-      if (diffDays < 7) return `${diffDays}d ago`;
-      
-      return date.toLocaleDateString();
-    } catch (error) {
-      return timeString;
+  const getIcon = () => {
+    switch (type) {
+      case 'success':
+        return <CheckCircle2 className="h-5 w-5 text-green-400" />;
+      case 'warning':
+        return <AlertTriangle className="h-5 w-5 text-amber-400" />;
+      case 'error':
+        return <AlertTriangle className="h-5 w-5 text-red-400" />;
+      case 'info':
+      default:
+        return <Info className="h-5 w-5 text-blue-400" />;
     }
   };
-
+  
+  const getTimeString = () => {
+    const date = new Date(time);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) {
+      const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+      return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`;
+    } else {
+      const diffInDays = Math.floor(diffInHours / 24);
+      return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`;
+    }
+  };
+  
   return (
-    <div className={cn(
-      'relative p-4 rounded-lg border mb-2 transition-all duration-200',
-      typeStyles[type],
-      !read && 'shadow-md'
+    <Card glass={true} className={cn(
+      "relative p-4 transition-all duration-300 hover:shadow-md",
+      !read ? "border-l-4 border-l-orange-light" : "",
+      "bg-black/30 backdrop-blur-md"
     )}>
-      {!read && (
-        <div className="absolute top-4 right-4 h-2 w-2 rounded-full bg-primary animate-pulse" />
-      )}
-      <div className="flex justify-between items-start">
-        <h4 className="font-medium text-sm">{title}</h4>
-        <span className="text-xs text-muted-foreground">{timeAgo(time)}</span>
-      </div>
-      <p className="text-sm text-muted-foreground mt-1">{message}</p>
+      <div className="absolute inset-0 bg-gradient-to-br from-black/10 to-transparent opacity-70 pointer-events-none rounded-xl"></div>
       
-      <div className="flex gap-2 mt-3 justify-end">
-        {!read && onMarkAsRead && (
-          <button 
-            onClick={() => onMarkAsRead(id)}
-            className="inline-flex items-center text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
-          >
-            <Check className="h-3 w-3 mr-1" />
-            Mark as read
-          </button>
-        )}
+      <div className="flex items-start gap-3 relative z-10">
+        <div className={cn(
+          "rounded-full p-2",
+          type === 'success' ? "bg-green-500/20" : "",
+          type === 'warning' ? "bg-amber-500/20" : "",
+          type === 'error' ? "bg-red-500/20" : "",
+          type === 'info' ? "bg-blue-500/20" : ""
+        )}>
+          {getIcon()}
+        </div>
+        
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between items-start">
+            <h4 className={cn(
+              "font-medium text-white text-shadow-sm",
+              !read ? "font-semibold" : ""
+            )}>
+              {title}
+            </h4>
+            <span className="text-xs text-white/60 whitespace-nowrap ml-2">{getTimeString()}</span>
+          </div>
+          <p className="text-sm text-white/80 mt-1 text-shadow-sm">{message}</p>
+          
+          {!read && onMarkAsRead && (
+            <div className="mt-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-xs p-0 h-auto text-white/70 hover:text-white"
+                onClick={() => onMarkAsRead(id)}
+              >
+                Mark as read
+              </Button>
+            </div>
+          )}
+        </div>
+        
         {onDismiss && (
-          <button 
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="p-1 h-auto text-white/50 hover:text-white hover:bg-white/10"
             onClick={() => onDismiss(id)}
-            className="inline-flex items-center text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
           >
-            <X className="h-3 w-3 mr-1" />
-            Dismiss
-          </button>
+            <X className="h-4 w-4" />
+          </Button>
         )}
       </div>
-    </div>
+    </Card>
   );
 };
 

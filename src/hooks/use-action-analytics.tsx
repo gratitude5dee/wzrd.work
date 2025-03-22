@@ -1,226 +1,155 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { toast } from '@/hooks/use-toast';
-import { getActionMetrics, getUserMetrics, getUsagePatterns } from '@/services/analyticsService';
-import { WorkflowAction } from '@/services/recordingService';
+import { useState, useEffect } from 'react';
+import { calculateTimelineData } from '@/services/timeSavedService';
+import { getActionExecutions, getActions } from '@/services/supabase';
 
-export interface ActionAnalyticsData {
-  executionCount: number;
-  successRate: number;
-  avgExecutionTime: number;
-  estimatedTimeSaved: number;
-  checkpointInteractions: {
-    shown: number;
-    modified: number;
-    cancelled: number;
-  };
+export interface ActionData {
+  id: string;
+  created_at: string;
+  user_id: string;
+  name: string;
+  description: string;
+  pattern: string[];
+  script: string;
+  success_rate: number;
+  average_execution_time: number;
+  category: string;
+}
+
+export interface ExecutionLog {
+  id: string;
+  created_at: string;
+  action_id: string;
+  user_id: string;
+  success: boolean;
+  time_saved: number;
+  execution_time: number;
+  input: string;
+  output: string;
+}
+
+export interface TimelineDataPoint {
+  date: string;
+  value: number;
+  count: number;
 }
 
 export interface UserAnalyticsData {
-  totalTimeSaved: number;
+  totalActions: number;
   totalExecutions: number;
   overallSuccessRate: number;
-  mostUsedActions: Array<{ actionId: string; count: number }>;
-  executionLogs: any[];
+  totalTimeSaved: number;
+  averageExecutionTime: number;
+  executionLogs: ExecutionLog[];
 }
 
 export interface UsagePatternData {
-  executionCounts: Array<{ date: string; value: number }>;
-  successRates: Array<{ date: string; value: number }>;
-  executionTimes: Array<{ date: string; value: number }>;
+  timelineData: TimelineDataPoint[];
+  executionTimes: { date: string; value: number; count: number }[];
 }
 
-// Add this missing type that is referenced in use-digital-assistant.tsx
-export interface ActionSummary {
-  id: string;
-  name: string;
-  description: string;
-  completedSteps: number;
-  totalSteps: number;
-  metrics: {
-    timeSaved: number;
-    executionTime: number;
-    successRate: number;
-    automationLevel: number;
-  };
-  relatedActions?: Array<{ id: string; name: string }>;
-}
+export const getRelatedActions = (actionId: string, allActions: ActionData[]): ActionData[] => {
+  if (!allActions || allActions.length === 0) return [];
+  
+  const action = allActions.find(a => a.id === actionId);
+  if (!action) return [];
 
-export function useActionAnalytics(actionId?: string) {
-  const [actionData, setActionData] = useState<ActionAnalyticsData | null>(null);
+  // Find actions with similar patterns
+  const relatedByPattern = allActions.filter(item => {
+    if (!item || !action) return false;
+    return item.id !== actionId && 
+           item.pattern && 
+           action.pattern && 
+           item.pattern.some(p => action.pattern.includes(p));
+  });
+
+  // Sort by success rate and execution time
+  const sortedActions = relatedByPattern.sort((a, b) => {
+    const successRateDiff = b.success_rate - a.success_rate;
+    if (successRateDiff !== 0) {
+      return successRateDiff;
+    }
+    return a.average_execution_time - b.average_execution_time;
+  });
+
+  return sortedActions;
+};
+
+const useActionAnalytics = (userId: string | undefined) => {
   const [userData, setUserData] = useState<UserAnalyticsData | null>(null);
   const [usagePatterns, setUsagePatterns] = useState<UsagePatternData | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<Error | null>(null);
-  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState<boolean>(false);
-  const [currentSummary, setCurrentSummary] = useState<ActionSummary | null>(null);
-  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Fetch analytics data for a specific action
-  const fetchActionAnalytics = useCallback(async (id: string) => {
-    if (!user) return;
-    
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      const metrics = await getActionMetrics(id);
-      
-      if (metrics) {
-        setActionData(metrics);
-      }
-    } catch (err) {
-      console.error('Error fetching action analytics:', err);
-      setError(err as Error);
-    } finally {
-      setIsLoading(false);
+  useEffect(() => {
+    if (!userId) {
+      console.warn("No user ID provided to useActionAnalytics hook.");
+      return;
     }
-  }, [user]);
 
-  // Fetch user's overall analytics data
-  const fetchUserAnalytics = useCallback(async () => {
-    if (!user) return;
-    
-    try {
-      setIsLoading(true);
+    const fetchAnalyticsData = async () => {
+      setLoading(true);
       setError(null);
-      
-      const metrics = await getUserMetrics();
-      
-      if (metrics) {
-        setUserData(metrics);
-      }
-    } catch (err) {
-      console.error('Error fetching user analytics:', err);
-      setError(err as Error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user]);
 
-  // Fetch usage pattern data
-  const fetchUsagePatterns = useCallback(async (timeframe: 'day' | 'week' | 'month' = 'week') => {
-    if (!user) return;
-    
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      const patterns = await getUsagePatterns(timeframe);
-      
-      if (patterns) {
-        setUsagePatterns(patterns);
-      }
-    } catch (err) {
-      console.error('Error fetching usage patterns:', err);
-      setError(err as Error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user]);
+      try {
+        // Fetch all actions and executions for the user
+        const [actions, executions] = await Promise.all([
+          getActions(userId),
+          getActionExecutions(userId)
+        ]);
 
-  // Add the missing functions needed in DigitalAssistant.tsx
-  const showSuccessDialog = useCallback((summary: ActionSummary) => {
-    setCurrentSummary(summary);
-    setIsSuccessDialogOpen(true);
-  }, []);
-
-  const closeSuccessDialog = useCallback(() => {
-    setIsSuccessDialogOpen(false);
-    setCurrentSummary(null);
-  }, []);
-
-  const getActionMetrics = useCallback((id: string) => {
-    fetchActionAnalytics(id);
-    return actionData;
-  }, [fetchActionAnalytics, actionData]);
-
-  // Get related actions based on usage patterns
-  const getRelatedActions = useCallback(async (action: WorkflowAction, limit: number = 3): Promise<Array<WorkflowAction>> => {
-    if (!user) return [];
-    
-    try {
-      // This is a simplified implementation - in a real app, you would use more sophisticated algorithms
-      // Here we're just getting actions that have similar tags
-      if (!action.tags || action.tags.length === 0) {
-        // If no tags, get most used actions
-        const { data, error } = await supabase
-          .from('execution_logs')
-          .select('action_id, count(*)')
-          .order('count', { ascending: false })
-          .limit(limit + 1); // +1 because we'll filter out the current action
-        
-        if (error) throw error;
-        
-        // Create a safe array for storing valid items
-        const validItems: { action_id: string }[] = [];
-        
-        // Check if data exists and is an array
-        if (data && Array.isArray(data)) {
-          // Loop through each item safely
-          for (const item of data) {
-            // Skip null/undefined items
-            if (!item) continue;
-            
-            // Make sure action_id exists and is a string
-            if (typeof item === 'object' && item !== null && 'action_id' in item && typeof item.action_id === 'string') {
-              validItems.push({ action_id: item.action_id });
-            }
-          }
+        if (!actions || !executions) {
+          throw new Error("Failed to fetch actions or executions.");
         }
-        
-        // Now we can safely work with validItems
-        const actionIds = validItems
-          .filter(item => item.action_id !== action.id)
-          .slice(0, limit)
-          .map(item => item.action_id);
-        
-        if (actionIds.length === 0) return [];
-        
-        // Fetch the action details
-        const { data: actions, error: actionsError } = await supabase
-          .from('workflow_actions')
-          .select('*')
-          .in('id', actionIds);
-        
-        if (actionsError) throw actionsError;
-        
-        return actions as WorkflowAction[];
-      } else {
-        // Find actions with similar tags
-        const { data, error } = await supabase
-          .from('workflow_actions')
-          .select('*')
-          .neq('id', action.id)
-          .overlaps('tags', action.tags || [])
-          .limit(limit);
-        
-        if (error) throw error;
-        
-        return data as WorkflowAction[];
-      }
-    } catch (err) {
-      console.error('Error getting related actions:', err);
-      return [];
-    }
-  }, [user]);
 
-  return {
-    actionData,
-    userData,
-    usagePatterns,
-    isLoading,
-    error,
-    fetchActionAnalytics,
-    fetchUserAnalytics,
-    fetchUsagePatterns,
-    getRelatedActions,
-    // Add these missing properties/methods used in DigitalAssistant.tsx
-    getActionMetrics,
-    isSuccessDialogOpen,
-    currentSummary,
-    showSuccessDialog,
-    closeSuccessDialog
-  };
-}
+        // Calculate analytics
+        const totalActions = actions.length;
+        const totalExecutions = executions.length;
+        const successfulExecutions = executions.filter(log => log.success).length;
+        const overallSuccessRate = totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0;
+
+        const totalTimeSaved = executions.reduce((sum, log) => sum + (log.time_saved || 0), 0);
+        const totalExecutionTime = executions.reduce((sum, log) => sum + log.execution_time, 0);
+        const averageExecutionTime = totalExecutions > 0 ? totalExecutionTime / totalExecutions : 0;
+
+        // Set user analytics data
+        setUserData({
+          totalActions,
+          totalExecutions,
+          overallSuccessRate,
+          totalTimeSaved,
+          averageExecutionTime,
+          executionLogs: executions
+        });
+
+        // Calculate timeline data for usage patterns
+        const timelineData = calculateTimelineData(executions);
+
+        // Structure execution times for chart
+        const executionTimes = timelineData.map(item => ({
+          date: item.date,
+          value: item.value,
+          count: item.count
+        }));
+
+        // Set usage patterns data
+        setUsagePatterns({
+          timelineData,
+          executionTimes
+        });
+
+      } catch (err: any) {
+        setError(err.message || "Failed to fetch analytics data.");
+        console.error("Error fetching action analytics:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnalyticsData();
+
+  }, [userId]);
+
+  return { userData, usagePatterns, loading, error };
+};
+
+export default useActionAnalytics;

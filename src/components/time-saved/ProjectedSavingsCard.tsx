@@ -114,25 +114,29 @@ const ProjectedSavingsCard: React.FC<ProjectedSavingsCardProps> = ({ userData })
   }, []);
   
   return (
-    <Card ref={cardRef} className="transform-style-3d transition-all duration-500 overflow-hidden">
-      <CardHeader className="pb-2 parallax-content">
-        <CardTitle className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-[#FF7940] animate-pulse-subtle" />
-          <span className="bg-gradient-to-r from-[#FF7940] to-[#FF5B14] bg-clip-text text-transparent">
+    <Card ref={cardRef} className="transform-style-3d transition-all duration-500 overflow-hidden" glass>
+      {/* Dark overlay for better text contrast */}
+      <div className="absolute inset-0 bg-gradient-to-br from-black/40 to-transparent opacity-70 pointer-events-none rounded-xl"></div>
+      
+      <CardHeader className="pb-2 parallax-content relative z-10">
+        <CardTitle className="flex items-center gap-2 text-white text-shadow">
+          <Sparkles className="h-5 w-5 text-orange-light animate-pulse-subtle" />
+          <span className="bg-gradient-to-r from-orange-light to-orange-dark bg-clip-text text-transparent text-shadow">
             Projected Savings
           </span>
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-white/80 text-shadow-sm">
           Based on your current usage patterns
         </CardDescription>
       </CardHeader>
-      <CardContent className="parallax-content">
+      <CardContent className="parallax-content relative z-10">
         <div className="space-y-6">
           <div className="flex justify-center gap-2 mb-4">
             <Button
               variant={timeframe === 'month' ? 'gradient' : 'glass'}
               size="sm"
               onClick={() => setTimeframe('month')}
+              className={timeframe === 'month' ? "bg-gradient-orange" : "bg-black/30 text-white"}
             >
               Monthly
             </Button>
@@ -140,34 +144,35 @@ const ProjectedSavingsCard: React.FC<ProjectedSavingsCardProps> = ({ userData })
               variant={timeframe === 'year' ? 'gradient' : 'glass'}
               size="sm"
               onClick={() => setTimeframe('year')}
+              className={timeframe === 'year' ? "bg-gradient-orange" : "bg-black/30 text-white"}
             >
               Yearly
             </Button>
           </div>
           
           <div className="flex items-center gap-3 justify-center">
-            <Calculator className="h-6 w-6 text-white/70" />
-            <div className="text-3xl font-bold bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">
+            <Calculator className="h-6 w-6 text-white/80" />
+            <div className="text-3xl font-bold text-white text-shadow">
               {displayValue}
             </div>
           </div>
           
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-white/70">Current Progress</span>
-              <span className="text-white">{Math.round(progressPercentage)}%</span>
+              <span className="text-white/80 text-shadow-sm">Current Progress</span>
+              <span className="text-white text-shadow-sm">{Math.round(progressPercentage)}%</span>
             </div>
-            <div className="relative h-2 w-full overflow-hidden rounded-full bg-white/10">
+            <div className="relative h-2 w-full overflow-hidden rounded-full bg-black/30">
               <div 
-                className="h-full rounded-full bg-gradient-to-r from-[#FF7940] to-[#FF5B14] transition-all duration-500 ease-out"
+                className="h-full rounded-full bg-gradient-to-r from-orange-light to-orange-dark transition-all duration-500 ease-out"
                 style={{ width: `${progressPercentage}%` }}
               />
             </div>
           </div>
           
-          <div className="rounded-md bg-white/10 p-3 text-sm border border-white/10 backdrop-blur-sm">
-            <p className="font-medium text-[#FF7940] mb-1">Impact Analysis</p>
-            <p className="text-white/70">
+          <div className="rounded-md bg-black/30 p-3 text-sm border border-white/20 backdrop-blur-sm">
+            <p className="font-medium text-orange-light text-shadow-sm mb-1">Impact Analysis</p>
+            <p className="text-white/80 text-shadow-sm">
               At your current rate, you'll save approximately{' '}
               <span className="font-medium text-white">
                 {formatTimeSaved(projectedTimeSaved)}
@@ -182,7 +187,7 @@ const ProjectedSavingsCard: React.FC<ProjectedSavingsCardProps> = ({ userData })
               {[...Array(5)].map((_, i) => (
                 <div
                   key={i}
-                  className="absolute rounded-full bg-[#FF7940]"
+                  className="absolute rounded-full bg-orange-light"
                   style={{
                     width: `${2 + Math.random() * 4}px`,
                     height: `${2 + Math.random() * 4}px`,
