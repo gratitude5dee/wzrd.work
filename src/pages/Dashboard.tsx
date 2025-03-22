@@ -10,6 +10,7 @@ import FadeIn from '../components/animations/FadeIn';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BrainCog, Fingerprint, Lightbulb, Timer, CheckCheck, Sparkles, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -101,112 +102,129 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           
-          {/* Metrics section */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <MetricCard 
-              title="Actions Learned" 
-              value={actionsLearned}
-              description="Workflows that WZRD has learned"
-              icon={BrainCog}
-            />
-            <MetricCard 
-              title="Actions Executed" 
-              value={actionsExecuted}
-              description="Automated workflows run by WZRD"
-              icon={CheckCheck}
-            />
-            <MetricCard 
-              title="Time Saved" 
-              value={`${timeSaved}h`}
-              description="Hours saved through automation"
-              icon={Timer}
-            />
+          {/* Main tabs section moved to the top */}
+          <div className="flex justify-center w-full mb-6">
+            <Tabs defaultValue="overview" onValueChange={handleTabChange} className="w-full space-y-6">
+              <TabsList className="grid w-full max-w-3xl mx-auto grid-cols-3 bg-black/40 backdrop-blur-md">
+                <TabsTrigger value="overview" className="gap-2 data-[state=active]:bg-gradient-orange data-[state=active]:text-white py-6">
+                  <Sparkles className="h-5 w-5" />
+                  <span className="text-lg">Overview</span>
+                </TabsTrigger>
+                <TabsTrigger value="learn" className="gap-2 data-[state=active]:bg-gradient-orange data-[state=active]:text-white py-6">
+                  <BrainCog className="h-5 w-5" />
+                  <span className="text-lg">Learn</span>
+                </TabsTrigger>
+                <TabsTrigger value="act" className="gap-2 data-[state=active]:bg-gradient-orange data-[state=active]:text-white py-6">
+                  <Fingerprint className="h-5 w-5" />
+                  <span className="text-lg">Act</span>
+                </TabsTrigger>
+              </TabsList>
+              
+              {/* Card-style buttons for each tab content */}
+              <TabsContent value="overview" className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <MetricCard 
+                    title="Actions Learned" 
+                    value={actionsLearned}
+                    description="Workflows that WZRD has learned"
+                    icon={BrainCog}
+                  />
+                  <MetricCard 
+                    title="Actions Executed" 
+                    value={actionsExecuted}
+                    description="Automated workflows run by WZRD"
+                    icon={CheckCheck}
+                  />
+                  <MetricCard 
+                    title="Time Saved" 
+                    value={`${timeSaved}h`}
+                    description="Hours saved through automation"
+                    icon={Timer}
+                  />
+                </div>
+                
+                {isNewUser ? (
+                  <EmptyState 
+                    title="No activity yet" 
+                    description="Start by recording your workflow in Learn mode to teach WZRD how you work."
+                    icon={Lightbulb}
+                    action={{
+                      label: "Start Learning",
+                      onClick: () => handleTabChange('learn')
+                    }}
+                    className="my-8"
+                  />
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="rounded-lg border shadow-sm p-6">
+                      <h3 className="font-medium mb-4">Recent Activity</h3>
+                      {/* Activity content would go here */}
+                      <p className="text-muted-foreground text-sm">No recent activity to display.</p>
+                    </div>
+                    <div className="rounded-lg border shadow-sm p-6">
+                      <h3 className="font-medium mb-4">Suggested Actions</h3>
+                      {/* Suggested actions would go here */}
+                      <p className="text-muted-foreground text-sm">No suggested actions available.</p>
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="learn" className="space-y-6">
+                <div className="max-w-3xl mx-auto">
+                  <Card className="glass-card shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+                    <CardContent className="p-0">
+                      <div className="p-8 text-center">
+                        <BrainCog className="w-16 h-16 mx-auto mb-4 text-white/90" />
+                        <h2 className="text-2xl font-bold mb-4 text-white text-shadow">Learn Mode</h2>
+                        <p className="text-white/90 text-shadow-sm mb-6 max-w-lg mx-auto">
+                          In this mode, WZRD observes how you work and learns your patterns. Start a recording session to help WZRD understand your workflow.
+                        </p>
+                        <div className="bg-black/30 rounded-lg p-4 border border-white/20 mb-6 max-w-lg mx-auto">
+                          <p className="text-sm text-white/90 text-shadow-sm">
+                            <strong>Privacy Note:</strong> Screen recordings are processed locally first for privacy. You control what data is shared.
+                          </p>
+                        </div>
+                        <Button 
+                          onClick={() => navigate('/dashboard/recordings/new')} 
+                          className="bg-gradient-orange text-white border-none text-lg py-6 px-8 rounded-xl shadow-lg hover:shadow-xl">
+                          Start Recording
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="act" className="space-y-6">
+                <div className="max-w-3xl mx-auto">
+                  <Card className="glass-card shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+                    <CardContent className="p-0">
+                      <div className="p-8 text-center">
+                        <Fingerprint className="w-16 h-16 mx-auto mb-4 text-white/90" />
+                        <h2 className="text-2xl font-bold mb-4 text-white text-shadow">Act Mode</h2>
+                        <p className="text-white/90 text-shadow-sm mb-6 max-w-lg mx-auto">
+                          Based on what WZRD has learned, it can help you automate tasks. This feature will be available once WZRD learns your workflow.
+                        </p>
+                        <div className="relative rounded-lg overflow-hidden bg-black/20 p-6 border border-dashed border-white/20 mb-6 max-w-lg mx-auto">
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-orange-light/10 to-transparent animate-shimmer"></div>
+                          <p className="text-white/80 text-shadow-sm">
+                            No automations available yet. Complete a learning session first.
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => handleTabChange('learn')}
+                          className="bg-black/30 text-white border-white/20 hover:bg-black/40 hover:border-white/30 text-lg py-6 px-8 rounded-xl">
+                          Start Learning First
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
-          
-          {/* Main content tabs with improved contrast */}
-          <Tabs defaultValue="overview" onValueChange={handleTabChange} className="space-y-6 pt-4">
-            <TabsList className="grid w-full md:w-[400px] grid-cols-3 bg-black/40 backdrop-blur-md">
-              <TabsTrigger value="overview" className="gap-2 data-[state=active]:bg-gradient-orange data-[state=active]:text-white">
-                <Sparkles className="h-4 w-4" />
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="learn" className="gap-2 data-[state=active]:bg-gradient-orange data-[state=active]:text-white">
-                <BrainCog className="h-4 w-4" />
-                Learn
-              </TabsTrigger>
-              <TabsTrigger value="act" className="gap-2 data-[state=active]:bg-gradient-orange data-[state=active]:text-white">
-                <Fingerprint className="h-4 w-4" />
-                Act
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="overview" className="space-y-6">
-              {isNewUser ? (
-                <EmptyState 
-                  title="No activity yet" 
-                  description="Start by recording your workflow in Learn mode to teach WZRD how you work."
-                  icon={Lightbulb}
-                  action={{
-                    label: "Start Learning",
-                    onClick: () => handleTabChange('learn')
-                  }}
-                  className="my-8"
-                />
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="rounded-lg border shadow-sm p-6">
-                    <h3 className="font-medium mb-4">Recent Activity</h3>
-                    {/* Activity content would go here */}
-                    <p className="text-muted-foreground text-sm">No recent activity to display.</p>
-                  </div>
-                  <div className="rounded-lg border shadow-sm p-6">
-                    <h3 className="font-medium mb-4">Suggested Actions</h3>
-                    {/* Suggested actions would go here */}
-                    <p className="text-muted-foreground text-sm">No suggested actions available.</p>
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="learn" className="space-y-6">
-              <div className="glass-card p-8 shadow-lg">
-                <h2 className="text-2xl font-bold mb-4 text-white text-shadow">Learn Mode</h2>
-                <p className="text-white/90 text-shadow-sm mb-6">
-                  In this mode, WZRD observes how you work and learns your patterns. Start a recording session to help WZRD understand your workflow.
-                </p>
-                <div className="space-y-4">
-                  <div className="bg-black/30 rounded-lg p-4 border border-white/20">
-                    <p className="text-sm text-white/90 text-shadow-sm">
-                      <strong>Privacy Note:</strong> Screen recordings are processed locally first for privacy. You control what data is shared.
-                    </p>
-                  </div>
-                  <Button onClick={() => navigate('/dashboard/recordings/new')} 
-                    className="bg-gradient-orange text-white border-none">
-                    Start Recording
-                  </Button>
-                </div>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="act" className="space-y-6">
-              <div className="glass-card p-8 shadow-lg">
-                <h2 className="text-2xl font-bold mb-4 text-white text-shadow">Act Mode</h2>
-                <p className="text-white/90 text-shadow-sm mb-6">
-                  Based on what WZRD has learned, it can help you automate tasks. This feature will be available once WZRD learns your workflow.
-                </p>
-                <div className="relative rounded-lg overflow-hidden bg-black/20 p-6 border border-dashed border-white/20 mb-6">
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-orange-light/10 to-transparent animate-shimmer"></div>
-                  <p className="text-white/80 text-shadow-sm">
-                    No automations available yet. Complete a learning session first.
-                  </p>
-                </div>
-                <Button variant="outline" onClick={() => handleTabChange('learn')}
-                  className="bg-black/30 text-white border-white/20 hover:bg-black/40 hover:border-white/30">
-                  Start Learning First
-                </Button>
-              </div>
-            </TabsContent>
-          </Tabs>
           
           {/* Notifications section with improved contrast */}
           <div className="mt-6 glass-card p-4">
