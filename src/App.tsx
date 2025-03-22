@@ -15,6 +15,7 @@ import NewRecordingPage from "./pages/NewRecordingPage";
 import RecordingDetailsPage from "./pages/RecordingDetailsPage";
 import ActPage from "./pages/ActPage";
 import ActivityPage from "./pages/ActivityPage";
+import TimeSavedPage from "./pages/TimeSavedPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 import React from "react"; // Added explicit React import
@@ -109,6 +110,16 @@ const App = () => {
                 element={
                   <ProtectedRoute>
                     <ActivityPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Time Saved route */}
+              <Route 
+                path="/dashboard/time-saved" 
+                element={
+                  <ProtectedRoute>
+                    <TimeSavedPage />
                   </ProtectedRoute>
                 } 
               />

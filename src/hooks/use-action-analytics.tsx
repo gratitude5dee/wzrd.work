@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -153,23 +154,26 @@ export function useActionAnalytics(actionId?: string) {
         
         if (error) throw error;
         
-        // Handle potentially undefined or null data
-        if (!data) return [];
-        
-        // Create a type-safe array by explicitly checking each item's structure
+        // Create a type-safe array for storing valid items
         const validItems: { action_id: string }[] = [];
         
-        // Loop through the data array and validate each item
-        for (const item of data) {
-          // Skip null items
-          if (item === null) continue;
-          
-          // Check if item is an object with an action_id property that's a string
-          if (typeof item === 'object' && 
-              item !== null && 
-              'action_id' in item && 
-              typeof item.action_id === 'string') {
-            validItems.push({ action_id: item.action_id });
+        // Check if data is not null or undefined
+        if (data) {
+          // Loop through each item in data array
+          for (let i = 0; i < data.length; i++) {
+            const item = data[i];
+            
+            // Skip null or undefined items
+            if (item === null || item === undefined) continue;
+            
+            // Verify the item is an object with the expected structure
+            if (
+              typeof item === 'object' &&
+              'action_id' in item &&
+              typeof item.action_id === 'string'
+            ) {
+              validItems.push({ action_id: item.action_id });
+            }
           }
         }
         

@@ -24,7 +24,8 @@ import {
   LogOut, 
   Settings, 
   Timer, 
-  Activity
+  Activity,
+  Clock
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -135,7 +136,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild tooltip="Time Saved">
                       <a href="/dashboard/time-saved">
-                        <Timer />
+                        <Clock />
                         <span>Time Saved</span>
                       </a>
                     </SidebarMenuButton>
