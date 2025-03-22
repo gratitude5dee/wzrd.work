@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
@@ -12,6 +11,7 @@ export interface ScreenRecording {
   status: 'pending' | 'processing' | 'completed' | 'error';
   created_at: string;
   updated_at: string;
+  raw_data?: any; // Using any to allow accessing nested properties
 }
 
 export interface WorkflowUnderstanding {
@@ -22,6 +22,7 @@ export interface WorkflowUnderstanding {
   status: 'pending' | 'processing' | 'completed' | 'error';
   created_at: string;
   updated_at: string;
+  gemini_response?: any; // Added to fix the error
 }
 
 export interface WorkflowAction {
@@ -138,7 +139,7 @@ export function useWorkflowActions(understandingId: string) {
 
 // Hook to check recording status and poll if still processing
 export function useRecordingStatus(id: string) {
-  return useQuery({
+  const query = useQuery({
     queryKey: ['recording_status', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -153,9 +154,11 @@ export function useRecordingStatus(id: string) {
     enabled: !!id,
     refetchInterval: (data) => {
       // Poll every 5 seconds if status is pending or processing
-      return (data?.status === 'pending' || data?.status === 'processing') ? 5000 : false;
+      return (data && (data.status === 'pending' || data.status === 'processing')) ? 5000 : false;
     }
   });
+  
+  return query;
 }
 
 // Hook to submit a recording with React Query

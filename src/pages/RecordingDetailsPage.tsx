@@ -48,6 +48,24 @@ const RecordingDetailsPage: React.FC = () => {
     );
   }
   
+  // Helper function to safely access nested properties
+  const getMetadataValue = (path: string, defaultValue: any = null) => {
+    try {
+      if (!recording.raw_data || typeof recording.raw_data !== 'object') return defaultValue;
+      
+      const metadata = recording.raw_data.metadata;
+      if (!metadata || typeof metadata !== 'object') return defaultValue;
+      
+      if (path === 'duration') return metadata.duration || defaultValue;
+      if (path === 'totalEvents') return metadata.totalEvents || defaultValue;
+      
+      return defaultValue;
+    } catch (error) {
+      console.error('Error accessing metadata:', error);
+      return defaultValue;
+    }
+  };
+  
   return (
     <DashboardLayout>
       <FadeIn>
@@ -132,20 +150,20 @@ const RecordingDetailsPage: React.FC = () => {
                       </p>
                     </div>
                     
-                    {recording.raw_data?.metadata && (
+                    {recording.raw_data && typeof recording.raw_data === 'object' && (
                       <div>
                         <h4 className="font-medium mb-1">Metadata</h4>
                         <div className="grid grid-cols-2 gap-4">
-                          {recording.raw_data.metadata.duration && (
+                          {getMetadataValue('duration') && (
                             <div>
                               <p className="text-sm text-muted-foreground">Duration</p>
-                              <p>{recording.raw_data.metadata.duration} seconds</p>
+                              <p>{getMetadataValue('duration')} seconds</p>
                             </div>
                           )}
-                          {recording.raw_data.metadata.totalEvents && (
+                          {getMetadataValue('totalEvents') && (
                             <div>
                               <p className="text-sm text-muted-foreground">Events</p>
-                              <p>{recording.raw_data.metadata.totalEvents}</p>
+                              <p>{getMetadataValue('totalEvents')}</p>
                             </div>
                           )}
                         </div>
@@ -224,11 +242,24 @@ const RecordingDetailsPage: React.FC = () => {
                     <div className="text-muted-foreground py-4">
                       Automation suggestions will be available once the analysis is completed.
                     </div>
-                  ) : understanding?.gemini_response?.candidates?.[0]?.content?.parts?.[0]?.text ? (
+                  ) : understanding && understanding.gemini_response ? (
                     <div>
                       {(() => {
                         try {
-                          const content = understanding.gemini_response.candidates[0].content.parts[0].text;
+                          const geminiResponse = understanding.gemini_response;
+                          if (!geminiResponse || !geminiResponse.candidates || 
+                              !geminiResponse.candidates[0] || !geminiResponse.candidates[0].content || 
+                              !geminiResponse.candidates[0].content.parts || 
+                              !geminiResponse.candidates[0].content.parts[0] ||
+                              !geminiResponse.candidates[0].content.parts[0].text) {
+                            return (
+                              <div className="text-muted-foreground py-4">
+                                No valid automation data found in the analysis.
+                              </div>
+                            );
+                          }
+                          
+                          const content = geminiResponse.candidates[0].content.parts[0].text;
                           const jsonMatch = content.match(/\{[\s\S]*\}/);
                           if (jsonMatch) {
                             const jsonContent = JSON.parse(jsonMatch[0]);
