@@ -157,11 +157,15 @@ export function useActionAnalytics(actionId?: string) {
         // Get the action details - filter out nulls and check if data exists
         if (!data || !Array.isArray(data)) return [];
         
-        const actionIds = data
-          .filter(item => item && typeof item === 'object' && item.action_id !== action.id)
+        // First safely filter out any null or non-object items
+        const filteredData = data.filter(item => item !== null && typeof item === 'object');
+        
+        // Then extract action_ids, ensuring they're not null and not equal to the current action id
+        const actionIds = filteredData
+          .filter(item => item.action_id !== action.id)
           .slice(0, limit)
-          .map(item => item && typeof item === 'object' ? item.action_id : null)
-          .filter(Boolean) as string[]; // Type assertion after filtering nulls
+          .map(item => item.action_id)
+          .filter((id): id is string => id !== null && typeof id === 'string'); // Type guard to ensure we have a string[]
         
         if (actionIds.length === 0) return [];
         
