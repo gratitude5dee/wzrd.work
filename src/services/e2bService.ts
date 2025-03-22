@@ -1,5 +1,5 @@
 
-import { EphemeralCloud } from '@e2b/sdk';
+import { E2B } from '@e2b/sdk';
 
 // Configuration for E2B
 const E2B_API_KEY = import.meta.env.VITE_E2B_API_KEY || '';
@@ -21,12 +21,12 @@ export interface ExecutionStatus {
 }
 
 // Type for the E2B Sandbox
-type Sandbox = Awaited<ReturnType<typeof EphemeralCloud.prototype.sandbox>>;
+type Sandbox = Awaited<ReturnType<typeof E2B.prototype.sandbox>>;
 
 // Class to manage the E2B session
 export class E2BManager {
   private sandbox: Sandbox | null = null;
-  private cloud: EphemeralCloud | null = null;
+  private e2b: E2B | null = null;
   private executionStatus: ExecutionStatus = {
     running: false,
     currentStep: 0,
@@ -43,10 +43,12 @@ export class E2BManager {
       }
 
       // Create a new E2B instance
-      this.cloud = new EphemeralCloud({ apiKey: E2B_API_KEY });
+      this.e2b = new E2B({
+        apiKey: E2B_API_KEY
+      });
       
       // Create a new sandbox
-      this.sandbox = await this.cloud.sandbox({ template: 'base' });
+      this.sandbox = await this.e2b.sandbox({ template: 'base' });
       
       this.addLog('E2B session initialized successfully');
       this.updateStatus();
@@ -83,12 +85,12 @@ export class E2BManager {
           case 'click':
             if (step.params?.selector) {
               // Use the browser to click on an element by selector
-              const webBrowser = await this.sandbox.webBrowser();
+              const webBrowser = await this.sandbox.browser();
               await webBrowser.click({ selector: step.params.selector });
               this.addLog(`Clicked element: ${step.params.selector}`);
             } else if (step.params?.x && step.params?.y) {
               // Click at coordinates
-              const webBrowser = await this.sandbox.webBrowser();
+              const webBrowser = await this.sandbox.browser();
               await webBrowser.click({ 
                 position: { x: step.params.x, y: step.params.y } 
               });
@@ -98,7 +100,7 @@ export class E2BManager {
             
           case 'type':
             if (step.params?.text) {
-              const webBrowser = await this.sandbox.webBrowser();
+              const webBrowser = await this.sandbox.browser();
               await webBrowser.type({ text: step.params.text });
               this.addLog(`Typed: ${step.params.text}`);
             }
@@ -122,7 +124,7 @@ export class E2BManager {
             break;
             
           case 'screenshot':
-            const webBrowser = await this.sandbox.webBrowser();
+            const webBrowser = await this.sandbox.browser();
             const screenshot = await webBrowser.screenshot();
             this.executionStatus.screenshot = screenshot;
             this.addLog('Took a screenshot');
@@ -226,7 +228,7 @@ export class E2BManager {
       }
       
       this.sandbox = null;
-      this.cloud = null;
+      this.e2b = null;
       
       this.addLog('E2B session cleaned up');
       this.updateStatus();
