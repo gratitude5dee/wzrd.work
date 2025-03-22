@@ -154,22 +154,22 @@ export function useActionAnalytics(actionId?: string) {
         
         if (error) throw error;
         
-        // Make sure data exists and is an array before proceeding
+        // Ensure data exists and is valid
         if (!data || !Array.isArray(data)) return [];
         
-        // Create a safe array to work with by filtering out any invalid items
-        const safeData = data.filter(item => 
+        // First, filter for valid items
+        const validItems = data.filter(item => 
           item !== null && 
           typeof item === 'object' && 
-          'action_id' in item &&
+          'action_id' in item && 
           typeof item.action_id === 'string'
         );
         
-        // Now extract the action IDs safely
-        const actionIds = safeData
+        // Now we can safely extract action IDs
+        const actionIds = validItems
           .filter(item => item.action_id !== action.id)
           .slice(0, limit)
-          .map(item => item.action_id);
+          .map(item => item.action_id as string);
         
         if (actionIds.length === 0) return [];
         
