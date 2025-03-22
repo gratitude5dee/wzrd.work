@@ -12,7 +12,9 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
+import React from "react"; // Added explicit React import
 
+// Create the query client outside of the component
 const queryClient = new QueryClient();
 
 // Protected route component
@@ -35,11 +37,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Define App as a proper React functional component
 const App = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <BrowserRouter>
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
           <TooltipProvider>
             <Toaster />
             <Sonner />
@@ -63,9 +66,9 @@ const App = () => {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </TooltipProvider>
-        </BrowserRouter>
-      </AuthProvider>
-    </QueryClientProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </BrowserRouter>
   );
 };
 
