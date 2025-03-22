@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/dashboard/DashboardLayout';
@@ -105,18 +104,18 @@ const Dashboard: React.FC = () => {
           {/* Main tabs section moved to the top */}
           <div className="flex justify-center w-full mb-6">
             <Tabs defaultValue="overview" onValueChange={handleTabChange} className="w-full space-y-6">
-              <TabsList className="grid w-full max-w-3xl mx-auto grid-cols-3 bg-black/40 backdrop-blur-md">
-                <TabsTrigger value="overview" className="gap-2 data-[state=active]:bg-gradient-orange data-[state=active]:text-white py-6">
-                  <Sparkles className="h-5 w-5" />
-                  <span className="text-lg">Overview</span>
+              <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-3 bg-black/50 backdrop-blur-md rounded-xl p-1.5 shadow-lg border border-white/10">
+                <TabsTrigger value="overview" className="gap-2 data-[state=active]:bg-gradient-orange data-[state=active]:text-white py-8 text-white/90 rounded-lg">
+                  <Sparkles className="h-6 w-6" />
+                  <span className="text-xl font-medium">Overview</span>
                 </TabsTrigger>
-                <TabsTrigger value="learn" className="gap-2 data-[state=active]:bg-gradient-orange data-[state=active]:text-white py-6">
-                  <BrainCog className="h-5 w-5" />
-                  <span className="text-lg">Learn</span>
+                <TabsTrigger value="learn" className="gap-2 data-[state=active]:bg-gradient-orange data-[state=active]:text-white py-8 text-white/90 rounded-lg">
+                  <BrainCog className="h-6 w-6" />
+                  <span className="text-xl font-medium">Learn</span>
                 </TabsTrigger>
-                <TabsTrigger value="act" className="gap-2 data-[state=active]:bg-gradient-orange data-[state=active]:text-white py-6">
-                  <Fingerprint className="h-5 w-5" />
-                  <span className="text-lg">Act</span>
+                <TabsTrigger value="act" className="gap-2 data-[state=active]:bg-gradient-orange data-[state=active]:text-white py-8 text-white/90 rounded-lg">
+                  <Fingerprint className="h-6 w-6" />
+                  <span className="text-xl font-medium">Act</span>
                 </TabsTrigger>
               </TabsList>
               

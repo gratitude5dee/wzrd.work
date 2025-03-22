@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { ActionData, ExecutionLog } from '@/hooks/use-action-analytics';
+import { Json } from '@/integrations/supabase/types';
 
 /**
  * Get all actions for a specific user
@@ -15,14 +16,14 @@ export const getActions = async (userId: string): Promise<ActionData[]> => {
     if (error) throw error;
     
     // Transform the data to match the ActionData interface
-    const transformedData = (data || []).map(item => ({
+    const transformedData: ActionData[] = (data || []).map(item => ({
       id: item.id,
       created_at: item.created_at,
-      user_id: userId, // Assuming user_id might be missing or different in the raw data
+      user_id: userId,
       name: item.name || '',
       description: item.description || '',
-      pattern: Array.isArray(item.tags) ? item.tags : [], // Using tags as pattern
-      script: item.instructions || '', // Using instructions as script
+      pattern: Array.isArray(item.tags) ? item.tags : [], 
+      script: item.instructions || '',
       success_rate: item.confidence_score || 0,
       average_execution_time: item.estimated_time_seconds || 0,
       category: item.action_type || ''
@@ -48,23 +49,28 @@ export const getActionExecutions = async (userId: string): Promise<ExecutionLog[
     if (error) throw error;
     
     // Transform the data to match the ExecutionLog interface
-    const transformedData = (data || []).map(item => {
+    const transformedData: ExecutionLog[] = (data || []).map(item => {
       // Safely handle potentially undefined or malformed execution_data
       let inputValue = '';
       let outputValue = '';
       
-      if (item.execution_data && typeof item.execution_data === 'object') {
-        // Handle case where execution_data is an object with input/output properties
-        inputValue = typeof item.execution_data.input === 'string' ? item.execution_data.input : '';
-        outputValue = typeof item.execution_data.output === 'string' ? item.execution_data.output : '';
-      } else if (typeof item.execution_data === 'string') {
-        // Handle case where execution_data might be a JSON string
-        try {
-          const parsedData = JSON.parse(item.execution_data);
-          inputValue = typeof parsedData.input === 'string' ? parsedData.input : '';
-          outputValue = typeof parsedData.output === 'string' ? parsedData.output : '';
-        } catch (e) {
-          // If JSON parsing fails, leave as empty strings
+      if (item.execution_data) {
+        if (typeof item.execution_data === 'object' && !Array.isArray(item.execution_data)) {
+          // Handle case where execution_data is an object
+          const execData = item.execution_data as Record<string, any>;
+          inputValue = typeof execData.input === 'string' ? execData.input : '';
+          outputValue = typeof execData.output === 'string' ? execData.output : '';
+        } else if (typeof item.execution_data === 'string') {
+          // Handle case where execution_data might be a JSON string
+          try {
+            const parsedData = JSON.parse(item.execution_data);
+            if (typeof parsedData === 'object' && parsedData !== null) {
+              inputValue = typeof parsedData.input === 'string' ? parsedData.input : '';
+              outputValue = typeof parsedData.output === 'string' ? parsedData.output : '';
+            }
+          } catch (e) {
+            // If JSON parsing fails, leave as empty strings
+          }
         }
       }
       
