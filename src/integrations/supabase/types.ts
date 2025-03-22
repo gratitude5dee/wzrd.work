@@ -9,6 +9,95 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      action_executions: {
+        Row: {
+          action_id: string | null
+          created_at: string | null
+          error_message: string | null
+          execution_data: Json | null
+          id: string
+          progress: number | null
+          result: string | null
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          execution_data?: Json | null
+          id?: string
+          progress?: number | null
+          result?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          execution_data?: Json | null
+          id?: string
+          progress?: number | null
+          result?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "action_executions_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      actions: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          examples: string[] | null
+          expected_outcome: string | null
+          id: string
+          name: string
+          prerequisites: string[] | null
+          prompt: string | null
+          steps: Json
+          triggers: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          examples?: string[] | null
+          expected_outcome?: string | null
+          id?: string
+          name: string
+          prerequisites?: string[] | null
+          prompt?: string | null
+          steps?: Json
+          triggers?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          examples?: string[] | null
+          expected_outcome?: string | null
+          id?: string
+          name?: string
+          prerequisites?: string[] | null
+          prompt?: string | null
+          steps?: Json
+          triggers?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       analytics_data: {
         Row: {
           action_id: string | null
