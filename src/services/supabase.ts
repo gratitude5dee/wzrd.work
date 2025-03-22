@@ -1,7 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { ActionData, ExecutionLog } from '@/hooks/use-action-analytics';
-import { Json } from '@/integrations/supabase/types';
 
 /**
  * Get all actions for a specific user
@@ -50,27 +49,20 @@ export const getActionExecutions = async (userId: string): Promise<ExecutionLog[
     
     // Transform the data to match the ExecutionLog interface
     const transformedData: ExecutionLog[] = (data || []).map(item => {
-      // Safely handle potentially undefined or malformed execution_data
+      // Handle execution_data parsing
       let inputValue = '';
       let outputValue = '';
       
       if (item.execution_data) {
-        if (typeof item.execution_data === 'object' && !Array.isArray(item.execution_data)) {
-          // Handle case where execution_data is an object
-          const execData = item.execution_data as Record<string, any>;
-          inputValue = typeof execData.input === 'string' ? execData.input : '';
-          outputValue = typeof execData.output === 'string' ? execData.output : '';
-        } else if (typeof item.execution_data === 'string') {
-          // Handle case where execution_data might be a JSON string
-          try {
-            const parsedData = JSON.parse(item.execution_data);
-            if (typeof parsedData === 'object' && parsedData !== null) {
-              inputValue = typeof parsedData.input === 'string' ? parsedData.input : '';
-              outputValue = typeof parsedData.output === 'string' ? parsedData.output : '';
-            }
-          } catch (e) {
-            // If JSON parsing fails, leave as empty strings
-          }
+        const execData = typeof item.execution_data === 'object' 
+          ? item.execution_data 
+          : (typeof item.execution_data === 'string' 
+              ? JSON.parse(item.execution_data) 
+              : null);
+              
+        if (execData && typeof execData === 'object') {
+          inputValue = execData.input || '';
+          outputValue = execData.output || '';
         }
       }
       
@@ -79,8 +71,8 @@ export const getActionExecutions = async (userId: string): Promise<ExecutionLog[
         created_at: item.created_at,
         action_id: item.action_id,
         user_id: item.user_id,
-        success: item.status === 'completed', // Assuming 'completed' means success
-        time_saved: item.duration_seconds ? item.duration_seconds * 2 : 0, // Estimating time saved as 2x duration
+        success: item.status === 'completed', 
+        time_saved: item.duration_seconds ? item.duration_seconds * 2 : 0,
         execution_time: item.duration_seconds || 0,
         input: inputValue,
         output: outputValue
@@ -91,5 +83,91 @@ export const getActionExecutions = async (userId: string): Promise<ExecutionLog[
   } catch (error) {
     console.error('Error fetching action executions:', error);
     return [];
+  }
+};
+
+/**
+ * Execute an action with Surf integration
+ */
+export const executeAction = async (
+  actionId: string, 
+  userId: string,
+  input?: string
+): Promise<{ executionId: string; success: boolean; message: string }> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('execute-action', {
+      body: { 
+        actionId, 
+        userId,
+        input,
+        useSurf: true // Flag to use Surf Computer Agent
+      }
+    });
+    
+    if (error) throw error;
+    
+    return {
+      executionId: data.executionId || '',
+      success: data.success || false,
+      message: data.message || 'Action execution requested'
+    };
+  } catch (error) {
+    console.error('Error executing action:', error);
+    return {
+      executionId: '',
+      success: false,
+      message: `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`
+    };
+  }
+};
+
+/**
+ * Get execution status updates for a specific execution
+ */
+export const getExecutionStatus = async (executionId: string): Promise<{
+  status: string;
+  progress: number;
+  output?: string;
+  error?: string;
+}> => {
+  try {
+    const { data, error } = await supabase
+      .from('execution_logs')
+      .select('*')
+      .eq('id', executionId)
+      .single();
+    
+    if (error) throw error;
+    
+    // Extract output from execution data if available
+    let output = '';
+    let outputError = '';
+    
+    if (data.execution_data) {
+      const execData = typeof data.execution_data === 'object' 
+        ? data.execution_data 
+        : (typeof data.execution_data === 'string' 
+            ? JSON.parse(data.execution_data) 
+            : null);
+            
+      if (execData && typeof execData === 'object') {
+        output = execData.output || '';
+        outputError = execData.error || '';
+      }
+    }
+    
+    return {
+      status: data.status || 'unknown',
+      progress: data.progress || 0,
+      output,
+      error: data.error_message || outputError || undefined
+    };
+  } catch (error) {
+    console.error('Error fetching execution status:', error);
+    return {
+      status: 'error',
+      progress: 0,
+      error: `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`
+    };
   }
 };

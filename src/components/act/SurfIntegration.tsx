@@ -1,18 +1,87 @@
-import { useState, useEffect } from 'react';
-import { toast } from '@/hooks/use-toast';
-import { Loader2, RefreshCw, Maximize, X } from 'lucide-react';
+
+import { useState, useEffect, useRef } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2, RefreshCw, Maximize, X, PlayCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { getExecutionStatus } from '@/services/supabase';
+
+interface SurfIntegrationProps {
+  isInitialized?: boolean;
+  onInitialize?: () => Promise<void>;
+  executionId?: string | null;
+}
 
 // This component integrates the surf app into the wzrd.work application
 // through an iframe that loads the surf app.
-const SurfIntegration = () => {
+const SurfIntegration: React.FC<SurfIntegrationProps> = ({ 
+  isInitialized = false,
+  onInitialize,
+  executionId = null
+}) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [executionStatus, setExecutionStatus] = useState<{
+    status: string;
+    progress: number;
+    output?: string;
+    error?: string;
+  } | null>(null);
+  
+  const statusCheckInterval = useRef<number | null>(null);
+  const { toast } = useToast();
   
   // URL of the surf app - making sure we're using the right port
   const surfAppUrl = 'http://localhost:3000';
+  
+  // Handle execution status polling
+  useEffect(() => {
+    if (executionId) {
+      // Start polling for execution status
+      const checkStatus = async () => {
+        try {
+          const status = await getExecutionStatus(executionId);
+          setExecutionStatus(status);
+          
+          // If execution is completed or failed, stop polling
+          if (status.status === 'completed' || status.status === 'failed') {
+            if (statusCheckInterval.current) {
+              window.clearInterval(statusCheckInterval.current);
+              statusCheckInterval.current = null;
+            }
+            
+            // Show toast with execution result
+            if (status.status === 'completed') {
+              toast({
+                title: "Execution completed",
+                description: "The action has been executed successfully"
+              });
+            } else if (status.status === 'failed') {
+              toast({
+                title: "Execution failed",
+                description: status.error || "The action execution failed",
+                variant: "destructive"
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error checking execution status:', error);
+        }
+      };
+      
+      // Check immediately and then set interval
+      checkStatus();
+      statusCheckInterval.current = window.setInterval(checkStatus, 2000);
+      
+      return () => {
+        if (statusCheckInterval.current) {
+          window.clearInterval(statusCheckInterval.current);
+          statusCheckInterval.current = null;
+        }
+      };
+    }
+  }, [executionId, toast]);
   
   const handleIframeLoad = () => {
     setIsLoading(false);
@@ -45,6 +114,13 @@ const SurfIntegration = () => {
     setIsFullscreen(!isFullscreen);
   };
   
+  // Initialize Surf environment
+  const handleInitialize = async () => {
+    if (onInitialize) {
+      await onInitialize();
+    }
+  };
+  
   // Listen for messages from the iframe
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -72,7 +148,27 @@ const SurfIntegration = () => {
     
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [toast]);
+  
+  // Display initialization prompt if not initialized
+  if (!isInitialized) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full border rounded-md p-8">
+        <h3 className="text-lg font-medium mb-4">Initialize Surf Environment</h3>
+        <p className="text-muted-foreground mb-6 text-center max-w-md">
+          Surf Computer Use Agent needs to be initialized before you can execute actions. 
+          This will create a sandboxed environment where actions can be performed safely.
+        </p>
+        <Button 
+          onClick={handleInitialize} 
+          className="flex items-center gap-2"
+        >
+          <PlayCircle className="h-5 w-5" />
+          Initialize Environment
+        </Button>
+      </div>
+    );
+  }
   
   return (
     <div className={`flex flex-col ${isFullscreen ? 'fixed inset-0 z-50 bg-background' : 'h-full'} border rounded-md overflow-hidden`}>
@@ -111,6 +207,24 @@ const SurfIntegration = () => {
         </div>
       </div>
       
+      {executionStatus && (
+        <div className="p-2 border-b bg-accent/10">
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium">
+              Execution status: {executionStatus.status}
+            </span>
+            <span className="text-sm">
+              Progress: {executionStatus.progress}%
+            </span>
+          </div>
+          {executionStatus.error && (
+            <div className="mt-1 text-sm text-red-500">
+              {executionStatus.error}
+            </div>
+          )}
+        </div>
+      )}
+      
       <div className="relative flex-1 overflow-hidden">
         {isLoading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 z-10">
@@ -142,4 +256,4 @@ const SurfIntegration = () => {
   );
 };
 
-export default SurfIntegration; 
+export default SurfIntegration;
