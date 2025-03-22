@@ -1,69 +1,163 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Layout from '../components/Layout';
-import Button from '../components/Button';
+import DashboardLayout from '../components/dashboard/DashboardLayout';
+import MetricCard from '../components/dashboard/MetricCard';
+import EmptyState from '../components/dashboard/EmptyState';
+import NotificationItem, { NotificationItemProps } from '../components/dashboard/NotificationItem';
+import { useAuth } from '../contexts/AuthContext';
 import FadeIn from '../components/animations/FadeIn';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BrainCog, Fingerprint, LogOut } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { BrainCog, Fingerprint, Lightbulb, Timer, CheckCheck, Sparkles, Bell } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { user, signOut, isLoading } = useAuth();
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<string>('overview');
   
-  const handleSignOut = async () => {
-    await signOut();
-    navigate('/');
+  // Mock data for a new user
+  const isNewUser = true;
+  const actionsLearned = 0;
+  const actionsExecuted = 0;
+  const timeSaved = 0;
+  
+  // Mock notifications
+  const [notifications, setNotifications] = useState<NotificationItemProps[]>([
+    {
+      id: '1',
+      title: 'Welcome to WZRD!',
+      message: 'Start by recording your workflow to teach WZRD how you work.',
+      type: 'info',
+      time: new Date().toISOString(),
+      read: false
+    },
+    {
+      id: '2',
+      title: 'New Features Available',
+      message: 'Check out our new keyboard shortcut detection system.',
+      type: 'success',
+      time: new Date(Date.now() - 3600000).toISOString(),
+      read: false
+    },
+    {
+      id: '3',
+      title: 'Upgrade Your Plan',
+      message: 'Upgrade to Pro for unlimited recording and automation.',
+      type: 'warning',
+      time: new Date(Date.now() - 86400000).toISOString(),
+      read: true
+    }
+  ]);
+  
+  const handleMarkAsRead = (id: string) => {
+    setNotifications(prev => 
+      prev.map(notif => 
+        notif.id === id ? { ...notif, read: true } : notif
+      )
+    );
   };
   
-  if (isLoading) {
-    return (
-      <Layout className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading your dashboard...</p>
-        </div>
-      </Layout>
-    );
-  }
+  const handleDismiss = (id: string) => {
+    setNotifications(prev => prev.filter(notif => notif.id !== id));
+  };
   
-  // In case the user is not logged in
-  if (!user) {
-    navigate('/auth');
-    return null;
-  }
-  
-  const userName = user.user_metadata.full_name || user.email;
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'there';
   
   return (
-    <Layout withNoise glassmorphism>
-      <div className="container py-16">
-        <FadeIn>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-4">
+    <DashboardLayout>
+      <FadeIn>
+        <div className="flex flex-col gap-6">
+          {/* Welcome section */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Welcome, {userName}</h1>
-              <p className="text-muted-foreground">Manage your WZRD experience</p>
+              <h1 className="text-3xl font-bold mb-1">Welcome, {userName}!</h1>
+              <p className="text-muted-foreground">
+                {isNewUser 
+                  ? "Let's get started with automating your work." 
+                  : "Here's your productivity overview for today."}
+              </p>
             </div>
-            <Button variant="outline" onClick={handleSignOut} className="gap-2">
-              <LogOut className="w-4 h-4" />
-              Sign Out
-            </Button>
+            <div className="flex gap-3">
+              <Button variant="outline" className="gap-2">
+                <Lightbulb className="h-4 w-4" />
+                View Tutorial
+              </Button>
+              <Button className="gap-2">
+                <BrainCog className="h-4 w-4" />
+                Start Recording
+              </Button>
+            </div>
           </div>
           
-          <Tabs defaultValue="learn" className="space-y-8">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
+          {/* Metrics section */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <MetricCard 
+              title="Actions Learned" 
+              value={actionsLearned}
+              description="Workflows that WZRD has learned"
+              icon={BrainCog}
+            />
+            <MetricCard 
+              title="Actions Executed" 
+              value={actionsExecuted}
+              description="Automated workflows run by WZRD"
+              icon={CheckCheck}
+            />
+            <MetricCard 
+              title="Time Saved" 
+              value={`${timeSaved}h`}
+              description="Hours saved through automation"
+              icon={Timer}
+            />
+          </div>
+          
+          {/* Main content tabs */}
+          <Tabs defaultValue="overview" onValueChange={setActiveTab} className="space-y-6 pt-4">
+            <TabsList className="grid w-full md:w-[400px] grid-cols-3">
+              <TabsTrigger value="overview" className="gap-2">
+                <Sparkles className="h-4 w-4" />
+                Overview
+              </TabsTrigger>
               <TabsTrigger value="learn" className="gap-2">
-                <BrainCog className="w-4 h-4" />
-                Learn Mode
+                <BrainCog className="h-4 w-4" />
+                Learn
               </TabsTrigger>
               <TabsTrigger value="act" className="gap-2">
-                <Fingerprint className="w-4 h-4" />
-                Act Mode
+                <Fingerprint className="h-4 w-4" />
+                Act
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="learn" className="space-y-4">
+            <TabsContent value="overview" className="space-y-6">
+              {isNewUser ? (
+                <EmptyState 
+                  title="No activity yet" 
+                  description="Start by recording your workflow in Learn mode to teach WZRD how you work."
+                  icon={Lightbulb}
+                  action={{
+                    label: "Start Learning",
+                    onClick: () => setActiveTab('learn')
+                  }}
+                  className="my-8"
+                />
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="rounded-lg border shadow-sm p-6">
+                    <h3 className="font-medium mb-4">Recent Activity</h3>
+                    {/* Activity content would go here */}
+                    <p className="text-muted-foreground text-sm">No recent activity to display.</p>
+                  </div>
+                  <div className="rounded-lg border shadow-sm p-6">
+                    <h3 className="font-medium mb-4">Suggested Actions</h3>
+                    {/* Suggested actions would go here */}
+                    <p className="text-muted-foreground text-sm">No suggested actions available.</p>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="learn" className="space-y-6">
               <div className="glass rounded-xl p-8 shadow-lg border border-white/10">
                 <h2 className="text-2xl font-bold mb-4">Learn Mode</h2>
                 <p className="text-muted-foreground mb-6">
@@ -80,7 +174,7 @@ const Dashboard: React.FC = () => {
               </div>
             </TabsContent>
             
-            <TabsContent value="act" className="space-y-4">
+            <TabsContent value="act" className="space-y-6">
               <div className="glass rounded-xl p-8 shadow-lg border border-white/10">
                 <h2 className="text-2xl font-bold mb-4">Act Mode</h2>
                 <p className="text-muted-foreground mb-6">
@@ -92,13 +186,39 @@ const Dashboard: React.FC = () => {
                     No automations available yet. Complete a learning session first.
                   </p>
                 </div>
-                <Button variant="outline">Start Learning First</Button>
+                <Button variant="outline" onClick={() => setActiveTab('learn')}>Start Learning First</Button>
               </div>
             </TabsContent>
           </Tabs>
-        </FadeIn>
-      </div>
-    </Layout>
+          
+          {/* Notifications section */}
+          <div className="mt-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Bell className="h-5 w-5 text-primary" />
+              <h2 className="text-xl font-semibold">Notifications</h2>
+              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                {notifications.filter(n => !n.read).length} unread
+              </span>
+            </div>
+            
+            <div className="space-y-2">
+              {notifications.length > 0 ? (
+                notifications.map(notification => (
+                  <NotificationItem 
+                    key={notification.id}
+                    {...notification}
+                    onMarkAsRead={handleMarkAsRead}
+                    onDismiss={handleDismiss}
+                  />
+                ))
+              ) : (
+                <p className="text-muted-foreground text-sm py-4">No notifications to display.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </FadeIn>
+    </DashboardLayout>
   );
 };
 
