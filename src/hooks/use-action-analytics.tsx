@@ -196,18 +196,18 @@ const useActionAnalytics = (userId: string | undefined) => {
   }, [userId]);
 
   // Function to show success dialog
-  const showSuccessDialog = (summary: ActionSummary) => {
+  const showSuccessDialog = useCallback((summary: ActionSummary) => {
     setCurrentSummary(summary);
     setIsSuccessDialogOpen(true);
-  };
+  }, []);
 
   // Function to close success dialog
-  const closeSuccessDialog = () => {
+  const closeSuccessDialog = useCallback(() => {
     setIsSuccessDialogOpen(false);
-  };
+  }, []);
 
   // Function to get metrics for a specific action
-  const getActionMetrics = (actionId: string) => {
+  const getActionMetrics = useCallback((actionId: string) => {
     if (!userData || !userData.executionLogs) return null;
     
     const actionLogs = userData.executionLogs.filter(log => log.action_id === actionId);
@@ -226,7 +226,7 @@ const useActionAnalytics = (userId: string | undefined) => {
       automationLevel: Math.min(90, 30 + successRate / 2), // Estimate based on success rate
       executionCount: actionLogs.length
     };
-  };
+  }, [userData]);
 
   return { 
     userData, 

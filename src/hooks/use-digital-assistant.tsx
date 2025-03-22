@@ -85,6 +85,9 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
     recordCheckpointInteraction
   } = useActionExecution();
 
+  const { user } = useAuth();
+  const { data: availableActions } = useAvailableActions();
+  
   const {
     userData, 
     usagePatterns, 
@@ -97,9 +100,6 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
     getActionMetrics,
     getRelatedActions
   } = useActionAnalytics(user?.id);
-
-  const { user } = useAuth();
-  const { data: availableActions } = useAvailableActions();
   
   const [selectedAction, setSelectedAction] = useState<WorkflowAction | null>(null);
 
