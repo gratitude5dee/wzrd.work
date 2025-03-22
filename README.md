@@ -1,69 +1,182 @@
-# Welcome to your Lovable project
+# WZRD.WORK
 
-## Project info
+**AI-Powered Workflow Capture and Analysis System**
 
-**URL**: https://lovable.dev/projects/91a923c1-c18a-489f-9fe4-12aa76594145
+WZRD.WORK is an AI-driven platform designed to observe, learn from, and augment knowledge workers' computer interactions. By capturing screen recordings through Screepipe, reasoning about user actions with the Computer Use API (e2b surf), and facilitating real-time communication via Tavus and ElevenLabs, WZRD.WORK enables enhanced digital productivity through contextual understanding of user behavior.
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## Table of Contents
+1. [Overview](#overview)
+2. [System Architecture](#system-architecture)
+3. [Core Components](#core-components)
+4. [Integration Points](#integration-points)
+5. [User Flow](#user-flow)
+6. [Development Setup](#development-setup)
+7. [Operation Intent](#operation-intent)
+8. [Next Steps](#next-steps)
+9. [Contact](#contact)
 
-**Use Lovable**
+---
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/91a923c1-c18a-489f-9fe4-12aa76594145) and start prompting.
+## Overview
 
-Changes made via Lovable will be committed automatically to this repo.
+WZRD.WORK provides an intelligent digital assistant that learns from your daily workflows. By monitoring screen activity, identifying patterns, and applying reasoning to user actions, the system can offer real-time suggestions, automate routine tasks, and provide valuable insights into optimizing your digital processes.
 
-**Use your preferred IDE**
+Key features include:
+- **Context-Aware Learning**: Captures and analyzes screen recordings to understand user workflows.
+- **Intelligent Reasoning**: Identifies behavior patterns and suggests improvements.
+- **Seamless Communication**: Integrates Tavus and ElevenLabs for conversational interactions with a digital knowledge worker.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+---
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## System Architecture
 
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+LEARN (Screepipe) → VIDEO LOGGER → BROWSER → CHECKOUT → SUCCESS
+      ↑               (Step-by-step     ↓         ↓          ↓
+      |                 actions)     Analyze    Process    Feedback
+      └───────────────────────────────────────────────────────────┘
 ```
 
-**Edit a file directly in GitHub**
+1. **LEARN (Screepipe)**
+   - Observes the user's screen and captures raw data (clicks, navigation, text inputs).
+2. **VIDEO LOGGER**
+   - Converts raw screen data into step-by-step action logs for subsequent analysis.
+3. **BROWSER**
+   - Interface where the user interacts with the system and receives feedback.
+4. **CHECKOUT → SUCCESS**
+   - The flow that describes analyzing user actions, processing them, and providing real-time assistance or insights.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+---
 
-**Use GitHub Codespaces**
+## Core Components
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+1. **Screepipe**
+   - Captures screen recordings and user interactions.
+   - Generates raw data feeds that provide context for user actions.
+   - Produces action sequences for further analysis.
 
-## What technologies are used for this project?
+2. **Video Logger**
+   - Processes screen captures into step-by-step logs.
+   - Timestamps and categorizes user activities.
+   - Identifies workflow patterns for the Computer Use API.
 
-This project is built with .
+3. **Computer Use API / e2b Surf**
+   - Applies reasoning to the recorded user actions.
+   - Extracts and maps workflow patterns.
+   - Surfaces optimization opportunities and creates searchable metadata.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+4. **Digital Knowledge Worker**
+   - AI assistant interface built with Tavus.
+   - Communicates through ElevenLabs voice synthesis.
+   - Provides task automation, workflow guidance, and context-aware suggestions.
 
-## How can I deploy this project?
+---
 
-Simply open [Lovable](https://lovable.dev/projects/91a923c1-c18a-489f-9fe4-12aa76594145) and click on Share -> Publish.
+## Integration Points
 
-## I want to use a custom domain - is that possible?
+- **Tavus**
+  - Facilitates interactive communication between the user and the Digital Knowledge Worker.
 
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+- **ElevenLabs**
+  - Delivers natural-sounding voice synthesis, enabling conversational interactions with the AI assistant.
+
+- **Container Architecture (SLM 20)**
+  - Deploys the entire system in a scalable and isolated environment.
+  - Ensures smooth integration of all microservices.
+  - Simplifies versioning and deployment.
+
+---
+
+## User Flow
+
+1. **Capture**: Screepipe continuously records screen data and user actions.
+2. **Logging**: Video Logger processes raw recordings into structured event logs.
+3. **Analysis**: The Computer Use API (e2b surf) interprets these logs, detecting patterns and potential optimizations.
+4. **Assistance**: The Digital Knowledge Worker (via Tavus + ElevenLabs) provides context-specific feedback, automation, and voice-based assistance.
+
+---
+
+## Development Setup
+
+1. **Clone the Repository**
+
+```bash
+git clone https://github.com/wzrd-work/wzrd.work.git
+cd wzrd.work
+```
+
+2. **Install Dependencies**
+   - Ensure you have Node.js (or your preferred runtime) installed.
+   - Install project dependencies:
+
+```bash
+npm install
+```
+
+   - Alternatively, use Docker to build the container.
+
+3. **Configure API Keys**
+   - Create a `.env` file (or use environment variables in your deployment system) with the following keys:
+
+```
+SCREEPIPE_API_KEY=<your_screepipe_key>
+E2B_SURF_API_KEY=<your_e2b_surf_key>
+TAVUS_API_KEY=<your_tavus_key>
+ELEVENLABS_API_KEY=<your_elevenlabs_key>
+```
+
+   - Adjust variable names to match your implementation.
+
+4. **Deploy with SLM 20 Container**
+   - Build and run the container:
+
+```bash
+docker build -t wzrd.work .
+docker run -d -p 3000:3000 --name wzrd_work wzrd.work
+```
+
+   - Confirm the container is running:
+
+```bash
+docker ps
+```
+
+---
+
+## Operation Intent
+
+WZRD.WORK is designed to:
+- **Capture & Analyze**: Observe user actions in real time and log them for pattern recognition.
+- **Map & Optimize**: Identify repetitive or inefficient workflows, then propose improvements.
+- **Search & Discover**: Provide an intelligent search layer for retrieving past actions or reference points.
+- **Assist & Automate**: Act as a digital assistant that can automate common tasks, give context-aware suggestions, and communicate through voice or text.
+
+---
+
+## Next Steps
+
+- **Expand Action Recognition**
+  - Refine the detection of complex, multi-step workflows for more accurate suggestions.
+
+- **Improve Reasoning Engine**
+  - Enhance the Computer Use API's ability to interpret user intent in varied contexts.
+
+- **Enhance Assistant Communication**
+  - Further integrate Tavus/ElevenLabs for more natural, intuitive conversations.
+
+- **Develop Additional Integrations**
+  - Connect with popular productivity tools, project management systems, and third-party APIs.
+
+---
+
+## Contact
+
+For more information, questions, or support requests, please contact the WZRD.WORK team:
+- **Website**: wzrd.work
+- **Email**: info@wzrd.work
+
+---
+
+Thank you for using WZRD.WORK! We look forward to helping you discover new efficiencies and unlock your full digital productivity potential.
