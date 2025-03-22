@@ -139,7 +139,7 @@ export function useWorkflowActions(understandingId: string) {
 
 // Hook to check recording status and poll if still processing
 export function useRecordingStatus(id: string) {
-  const query = useQuery({
+  return useQuery({
     queryKey: ['recording_status', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -154,11 +154,12 @@ export function useRecordingStatus(id: string) {
     enabled: !!id,
     refetchInterval: (data) => {
       // Poll every 5 seconds if status is pending or processing
-      return (data && (data.status === 'pending' || data.status === 'processing')) ? 5000 : false;
+      if (data && (data.status === 'pending' || data.status === 'processing')) {
+        return 5000;
+      }
+      return false;
     }
   });
-  
-  return query;
 }
 
 // Hook to submit a recording with React Query

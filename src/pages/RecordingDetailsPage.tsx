@@ -55,12 +55,21 @@ const RecordingDetailsPage: React.FC = () => {
       
       const rawData = recording.raw_data;
       
+      // If raw_data is not an object, return default
       if (typeof rawData !== 'object') return defaultValue;
       
-      // Handle case when raw_data is an object
-      if (!Array.isArray(rawData) && rawData.metadata) {
-        if (path === 'duration') return rawData.metadata.duration || defaultValue;
-        if (path === 'totalEvents') return rawData.metadata.totalEvents || defaultValue;
+      // Handle case when raw_data is an object with metadata property
+      if (!Array.isArray(rawData)) {
+        const recordingData = rawData as { [key: string]: any };
+        if (recordingData.metadata && typeof recordingData.metadata === 'object') {
+          const metadata = recordingData.metadata as { [key: string]: any };
+          if (path === 'duration' && 'duration' in metadata) {
+            return metadata.duration;
+          }
+          if (path === 'totalEvents' && 'totalEvents' in metadata) {
+            return metadata.totalEvents;
+          }
+        }
       }
       
       return defaultValue;
