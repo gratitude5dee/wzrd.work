@@ -240,3 +240,52 @@ export async function getExecutionStatus(executionId: string) {
     };
   }
 }
+
+// New function to get all actions
+export async function getActions(userId?: string) {
+  try {
+    let query = supabase.from('actions').select('*');
+    
+    // If userId is provided, filter by created_by
+    if (userId) {
+      query = query.eq('created_by', userId);
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: false });
+    
+    if (error) {
+      throw new Error(`Error fetching actions: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error in getActions:', error);
+    return [];
+  }
+}
+
+// New function to get action executions
+export async function getActionExecutions(userId?: string) {
+  try {
+    let query = supabase.from('action_executions').select(`
+      *,
+      actions(name, description)
+    `);
+    
+    // If userId is provided, filter by user_id
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: false });
+    
+    if (error) {
+      throw new Error(`Error fetching action executions: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error in getActionExecutions:', error);
+    return [];
+  }
+}
