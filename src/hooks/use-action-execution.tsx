@@ -5,13 +5,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { WorkflowAction } from '@/services/recordingService';
 
+export type ExecutionStatus = 'started' | 'running' | 'completed' | 'failed' | 'cancelled';
+
 export interface ExecutionLog {
   id?: string;
   action_id: string;
   user_id?: string;
-  status: 'started' | 'running' | 'completed' | 'failed' | 'cancelled';
-  start_time?: Date;
-  end_time?: Date;
+  status: ExecutionStatus;
+  start_time?: string | Date;
+  end_time?: string | Date;
   duration_seconds?: number;
   checkpoints_shown: number;
   checkpoints_modified: number;
@@ -37,11 +39,13 @@ export function useActionExecution() {
     }
 
     try {
-      const executionLog: ExecutionLog = {
+      const startTime = new Date();
+      // Create the execution log object with proper typing
+      const executionLog: Record<string, any> = {
         action_id: action.id,
         user_id: user.id,
-        status: 'started',
-        start_time: new Date(),
+        status: 'started' as ExecutionStatus,
+        start_time: startTime.toISOString(), // Always use ISO string for Supabase
         checkpoints_shown: 0,
         checkpoints_modified: 0,
         checkpoints_cancelled: 0,
@@ -61,10 +65,21 @@ export function useActionExecution() {
         throw error;
       }
 
-      setCurrentExecution(data);
-      setIsExecuting(true);
+      // Convert string dates to Date objects for internal state
+      if (data) {
+        const formattedData: ExecutionLog = {
+          ...data,
+          start_time: data.start_time ? new Date(data.start_time) : undefined,
+          end_time: data.end_time ? new Date(data.end_time) : undefined,
+          status: data.status as ExecutionStatus
+        };
+
+        setCurrentExecution(formattedData);
+        setIsExecuting(true);
+        return formattedData;
+      }
       
-      return data;
+      return null;
     } catch (error) {
       console.error('Error starting execution:', error);
       toast({
@@ -82,9 +97,19 @@ export function useActionExecution() {
     updates: Partial<ExecutionLog>
   ) => {
     try {
+      // Convert Date objects to ISO strings for Supabase
+      const formattedUpdates: Record<string, any> = {};
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value instanceof Date) {
+          formattedUpdates[key] = value.toISOString();
+        } else {
+          formattedUpdates[key] = value;
+        }
+      });
+
       const { error } = await supabase
         .from('execution_logs')
-        .update(updates)
+        .update(formattedUpdates)
         .eq('id', executionId);
 
       if (error) {
@@ -92,7 +117,19 @@ export function useActionExecution() {
       }
 
       if (currentExecution && currentExecution.id === executionId) {
-        setCurrentExecution(prev => prev ? { ...prev, ...updates } : null);
+        setCurrentExecution(prev => {
+          if (!prev) return null;
+          
+          // Create a proper merged object
+          const updated = { ...prev };
+          
+          // Handle each field appropriately
+          Object.entries(updates).forEach(([key, value]) => {
+            (updated as any)[key] = value;
+          });
+          
+          return updated;
+        });
       }
 
       // If completed or failed, set isExecuting to false
@@ -115,9 +152,11 @@ export function useActionExecution() {
     errorMessage?: string
   ) => {
     const endTime = new Date();
-    const startTime = currentExecution?.start_time 
-      ? new Date(currentExecution.start_time)
-      : new Date();
+    const startTime = currentExecution?.start_time instanceof Date 
+      ? currentExecution.start_time
+      : currentExecution?.start_time
+        ? new Date(currentExecution.start_time)
+        : new Date();
     
     const durationSeconds = (endTime.getTime() - startTime.getTime()) / 1000;
 
@@ -136,7 +175,8 @@ export function useActionExecution() {
     // Record analytics data for this execution
     if (user && status === 'completed') {
       try {
-        await supabase.from('analytics_data').insert([
+        // Use appropriate types for analytics data
+        const metrics = [
           {
             user_id: user.id,
             action_id: currentExecution?.action_id,
@@ -151,7 +191,9 @@ export function useActionExecution() {
             metric_value: durationSeconds * 2, // Simplified estimate
             context: { execution_id: executionId }
           }
-        ]);
+        ];
+        
+        await supabase.from('analytics_data').insert(metrics);
       } catch (error) {
         console.error('Error recording analytics:', error);
       }

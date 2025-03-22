@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
@@ -47,7 +47,18 @@ export function useAssistantMessages() {
       }
       
       if (data && data.saved_decisions) {
-        setSavedDecisions(data.saved_decisions);
+        // Ensure we're parsing this correctly for the expected structure
+        let decisions;
+        if (typeof data.saved_decisions === 'string') {
+          decisions = JSON.parse(data.saved_decisions);
+        } else if (typeof data.saved_decisions === 'object') {
+          decisions = data.saved_decisions;
+        } else {
+          console.error('Unexpected format for saved_decisions:', data.saved_decisions);
+          return;
+        }
+          
+        setSavedDecisions(decisions as Record<string, CheckpointDecision>);
       }
     } catch (error) {
       console.error('Error loading saved decisions:', error);
@@ -64,11 +75,12 @@ export function useAssistantMessages() {
         [decision.checkpointId]: decision
       };
       
+      // Ensure we're correctly passing the saved_decisions as JSON
       const { error } = await supabase
         .from('user_preferences')
         .upsert({
           user_id: user.id,
-          saved_decisions: newSavedDecisions
+          saved_decisions: JSON.stringify(newSavedDecisions)
         });
       
       if (error) {

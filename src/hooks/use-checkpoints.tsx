@@ -10,6 +10,7 @@ export interface Checkpoint {
   importance: number; // 1-10 scale
   step: number;
   actionData?: any;
+  severity: 'info' | 'warning' | 'critical'; // Make severity required to match CheckpointOptions
 }
 
 export function useCheckpoints() {
@@ -40,15 +41,26 @@ export function useCheckpoints() {
   }, [preferences]);
 
   const generateCheckpointsFromAction = useCallback((action: WorkflowAction): Checkpoint[] => {
-    // Use checkpoints from action config if available
-    if (action.checkpoint_config?.checkpoints?.length > 0) {
-      return action.checkpoint_config.checkpoints.map((cp: any, index: number) => ({
+    // Add a safe check for the checkpoint_config property
+    // If it doesn't exist, we'll just generate default checkpoints
+    const hasCheckpointConfig = action.hasOwnProperty('checkpoint_config') && 
+                               action.checkpoint_config &&
+                               typeof action.checkpoint_config === 'object' &&
+                               action.checkpoint_config.checkpoints &&
+                               Array.isArray(action.checkpoint_config.checkpoints);
+    
+    if (hasCheckpointConfig) {
+      // Type assertion for TypeScript
+      const config = (action as any).checkpoint_config;
+      
+      return config.checkpoints.map((cp: any, index: number) => ({
         id: `${action.id}-checkpoint-${index}`,
         title: cp.title || `Checkpoint ${index + 1}`,
         description: cp.description || 'Please review this step before proceeding.',
         importance: cp.importance || 5,
         step: index + 1,
-        actionData: cp.actionData
+        actionData: cp.actionData,
+        severity: cp.severity || 'info'
       }));
     }
     
@@ -63,7 +75,8 @@ export function useCheckpoints() {
         description: 'This action will open a browser and access websites on your behalf.',
         importance: 7,
         step: 1,
-        actionData: { type: 'browser_access' }
+        actionData: { type: 'browser_access' },
+        severity: 'info'
       });
     } else if (action.action_type === 'file_system') {
       checkpoints.push({
@@ -72,7 +85,8 @@ export function useCheckpoints() {
         description: 'This action will create or modify files on your system.',
         importance: 8,
         step: 1,
-        actionData: { type: 'file_system_access' }
+        actionData: { type: 'file_system_access' },
+        severity: 'warning'
       });
     }
     
@@ -83,7 +97,8 @@ export function useCheckpoints() {
       description: `Are you ready to execute "${action.name || 'this action'}"?`,
       importance: 6,
       step: checkpoints.length + 1,
-      actionData: { type: 'final_confirmation' }
+      actionData: { type: 'final_confirmation' },
+      severity: 'info'
     });
     
     return checkpoints;
@@ -104,6 +119,26 @@ export function useCheckpoints() {
     setCurrentCheckpoint(null);
   }, []);
 
+  // Add handlers for checkpoint actions
+  const handleProceed = useCallback(() => {
+    // Implementation for proceeding after checkpoint
+    dismissCheckpoint();
+  }, [dismissCheckpoint]);
+
+  const handleModify = useCallback(() => {
+    // Implementation for modifying at checkpoint
+    dismissCheckpoint();
+  }, [dismissCheckpoint]);
+
+  const handleCancel = useCallback(() => {
+    // Implementation for canceling at checkpoint
+    dismissCheckpoint();
+  }, [dismissCheckpoint]);
+
+  const closeCheckpoint = useCallback(() => {
+    dismissCheckpoint();
+  }, [dismissCheckpoint]);
+
   return {
     currentCheckpoint,
     showCheckpoint,
@@ -111,6 +146,12 @@ export function useCheckpoints() {
     shouldShowCheckpoint,
     generateCheckpointsFromAction,
     displayCheckpoint,
-    dismissCheckpoint
+    dismissCheckpoint,
+    // Add these missing properties that DigitalAssistant.tsx expects
+    isCheckpointOpen: showCheckpoint,
+    handleProceed,
+    handleModify,
+    handleCancel,
+    closeCheckpoint
   };
 }

@@ -1,151 +1,174 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
+import { WorkflowAction } from './recordingService';
 
+// Define types for analytics metrics
 export interface AnalyticsMetric {
   id?: string;
   user_id?: string;
   action_id?: string;
   metric_type: string;
-  metric_value: number;
+  metric_value?: number;
   context?: any;
   created_at?: string;
 }
 
-export interface ActionMetrics {
-  executionCount: number;
-  successRate: number;
-  avgExecutionTime: number;
-  estimatedTimeSaved: number;
-  checkpointInteractions: {
-    shown: number;
-    modified: number;
-    cancelled: number;
-  };
-}
-
-// Track an analytics metric
-export async function trackMetric(metric: Omit<AnalyticsMetric, 'id' | 'created_at'>) {
+/**
+ * Record an analytics metric
+ */
+export async function recordMetric(metric: Omit<AnalyticsMetric, 'id' | 'created_at'>) {
   try {
-    const { error } = await supabase
+    // Ensure user_id is included
+    let updatedMetric = { ...metric };
+    
+    if (!updatedMetric.user_id) {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData?.user) {
+        updatedMetric.user_id = userData.user.id;
+      } else {
+        throw new Error('User not authenticated');
+      }
+    }
+
+    // Now insert with required user_id field
+    const { data, error } = await supabase
       .from('analytics_data')
-      .insert(metric);
+      .insert({
+        user_id: updatedMetric.user_id,
+        action_id: updatedMetric.action_id,
+        metric_type: updatedMetric.metric_type,
+        metric_value: updatedMetric.metric_value,
+        context: updatedMetric.context
+      });
+
+    if (error) {
+      throw error;
+    }
     
-    if (error) throw error;
-    
-    return true;
+    return data;
   } catch (error) {
-    console.error('Error tracking metric:', error);
-    return false;
+    console.error('Error recording metric:', error);
+    throw error;
   }
 }
 
-// Get metrics for a specific action
-export async function getActionMetrics(actionId: string): Promise<ActionMetrics | null> {
+/**
+ * Get metrics for a specific action
+ */
+export async function getActionMetrics(actionId: string) {
   try {
-    // Get execution logs for this action
-    const { data: executionLogs, error: executionError } = await supabase
+    // Get execution counts
+    const { data: executionData, error: executionError } = await supabase
       .from('execution_logs')
       .select('*')
       .eq('action_id', actionId);
     
     if (executionError) throw executionError;
     
-    if (!executionLogs || executionLogs.length === 0) {
-      return {
-        executionCount: 0,
-        successRate: 0,
-        avgExecutionTime: 0,
-        estimatedTimeSaved: 0,
-        checkpointInteractions: {
-          shown: 0,
-          modified: 0,
-          cancelled: 0
-        }
-      };
-    }
+    // Calculate success rate
+    const totalExecutions = executionData?.length || 0;
+    const successfulExecutions = executionData?.filter(log => log.status === 'completed')?.length || 0;
+    const successRate = totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0;
     
-    // Calculate metrics
-    const executionCount = executionLogs.length;
-    const successfulExecutions = executionLogs.filter(log => log.status === 'completed');
-    const successRate = (successfulExecutions.length / executionCount) * 100;
-    
-    // Calculate average execution time (only for completed executions)
-    const executionTimes = successfulExecutions
-      .filter(log => log.duration_seconds)
-      .map(log => log.duration_seconds || 0);
-    
+    // Calculate avg execution time
+    const executionTimes = executionData
+      ?.filter(log => log.duration_seconds)
+      ?.map(log => log.duration_seconds || 0) || [];
+      
     const avgExecutionTime = executionTimes.length > 0
       ? executionTimes.reduce((sum, time) => sum + time, 0) / executionTimes.length
       : 0;
     
-    // Calculate time saved (simplified estimation)
-    const estimatedTimeSaved = avgExecutionTime * successfulExecutions.length * 2;
+    // Get time saved metrics
+    const { data: timeSavedData, error: timeSavedError } = await supabase
+      .from('analytics_data')
+      .select('metric_value')
+      .eq('action_id', actionId)
+      .eq('metric_type', 'time_saved');
     
-    // Calculate checkpoint interactions
-    const checkpointInteractions = {
-      shown: executionLogs.reduce((sum, log) => sum + (log.checkpoints_shown || 0), 0),
-      modified: executionLogs.reduce((sum, log) => sum + (log.checkpoints_modified || 0), 0),
-      cancelled: executionLogs.reduce((sum, log) => sum + (log.checkpoints_cancelled || 0), 0)
-    };
+    if (timeSavedError) throw timeSavedError;
+    
+    const estimatedTimeSaved = timeSavedData
+      ?.reduce((sum, item) => sum + (item.metric_value || 0), 0) || 0;
+    
+    // Get checkpoint interactions - safely handle array access
+    const checkpointShown = executionData && Array.isArray(executionData)
+      ? executionData.reduce((sum, log) => sum + (log.checkpoints_shown || 0), 0)
+      : 0;
+    
+    const checkpointModified = executionData && Array.isArray(executionData)
+      ? executionData.reduce((sum, log) => sum + (log.checkpoints_modified || 0), 0)
+      : 0;
+    
+    const checkpointCancelled = executionData && Array.isArray(executionData)
+      ? executionData.reduce((sum, log) => sum + (log.checkpoints_cancelled || 0), 0)
+      : 0;
     
     return {
-      executionCount,
+      executionCount: totalExecutions,
       successRate,
       avgExecutionTime,
       estimatedTimeSaved,
-      checkpointInteractions
+      checkpointInteractions: {
+        shown: checkpointShown,
+        modified: checkpointModified,
+        cancelled: checkpointCancelled
+      }
     };
   } catch (error) {
     console.error('Error getting action metrics:', error);
-    toast({
-      title: 'Error loading metrics',
-      description: 'Failed to load action metrics data.',
-      variant: 'destructive'
-    });
-    return null;
+    throw error;
   }
 }
 
-// Get overall user metrics
+/**
+ * Get overall metrics for a user
+ */
 export async function getUserMetrics() {
   try {
-    // Get metrics data for the current user
-    const { data: userData, error: userError } = await supabase
-      .from('analytics_data')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) {
+      throw new Error('User not authenticated');
+    }
     
-    if (userError) throw userError;
+    const userId = userData.user.id;
     
-    // Get execution logs for the current user
+    // Get all execution logs
     const { data: executionLogs, error: executionError } = await supabase
       .from('execution_logs')
       .select('*')
-      .order('created_at', { ascending: false });
+      .eq('user_id', userId);
     
     if (executionError) throw executionError;
     
-    // Calculate overall metrics
-    const totalTimeSaved = userData
-      .filter(data => data.metric_type === 'time_saved')
-      .reduce((sum, data) => sum + (data.metric_value || 0), 0);
+    // Calculate metrics
+    const totalExecutions = executionLogs?.length || 0;
+    const successfulExecutions = executionLogs?.filter(log => log.status === 'completed')?.length || 0;
+    const overallSuccessRate = totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0;
     
-    const totalExecutions = executionLogs.length;
-    const successfulExecutions = executionLogs.filter(log => log.status === 'completed');
-    const overallSuccessRate = totalExecutions > 0
-      ? (successfulExecutions.length / totalExecutions) * 100
-      : 0;
+    // Get time saved metrics
+    const { data: timeSavedData, error: timeSavedError } = await supabase
+      .from('analytics_data')
+      .select('metric_value')
+      .eq('user_id', userId)
+      .eq('metric_type', 'time_saved');
     
-    // Get most used actions
-    const actionUsageCounts: Record<string, number> = {};
-    executionLogs.forEach(log => {
-      if (log.action_id) {
-        actionUsageCounts[log.action_id] = (actionUsageCounts[log.action_id] || 0) + 1;
-      }
-    });
+    if (timeSavedError) throw timeSavedError;
     
-    const mostUsedActions = Object.entries(actionUsageCounts)
+    const totalTimeSaved = timeSavedData
+      ?.reduce((sum, item) => sum + (item.metric_value || 0), 0) || 0;
+    
+    // Get most used actions - safety checks for Array.isArray
+    const actionCounts: Record<string, number> = {};
+    if (executionLogs && Array.isArray(executionLogs)) {
+      executionLogs.forEach(log => {
+        if (log.action_id) {
+          actionCounts[log.action_id] = (actionCounts[log.action_id] || 0) + 1;
+        }
+      });
+    }
+    
+    const mostUsedActions = Object.entries(actionCounts)
       .map(([actionId, count]) => ({ actionId, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
@@ -155,88 +178,102 @@ export async function getUserMetrics() {
       totalExecutions,
       overallSuccessRate,
       mostUsedActions,
-      executionLogs: executionLogs.slice(0, 10) // Latest 10 executions
+      executionLogs: executionLogs || []
     };
   } catch (error) {
     console.error('Error getting user metrics:', error);
-    toast({
-      title: 'Error loading metrics',
-      description: 'Failed to load user metrics data.',
-      variant: 'destructive'
-    });
-    return null;
+    throw error;
   }
 }
 
-// Get usage patterns over time
+/**
+ * Get usage pattern data for visualization
+ */
 export async function getUsagePatterns(timeframe: 'day' | 'week' | 'month' = 'week') {
   try {
-    let timeFilter: string;
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) {
+      throw new Error('User not authenticated');
+    }
+    
+    const userId = userData.user.id;
+    
+    // Get date range based on timeframe
+    const now = new Date();
+    let startDate = new Date();
     
     switch (timeframe) {
       case 'day':
-        timeFilter = 'created_at > now() - interval \'24 hours\'';
-        break;
-      case 'month':
-        timeFilter = 'created_at > now() - interval \'30 days\'';
+        startDate.setDate(now.getDate() - 1);
         break;
       case 'week':
-      default:
-        timeFilter = 'created_at > now() - interval \'7 days\'';
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case 'month':
+        startDate.setMonth(now.getMonth() - 1);
+        break;
     }
     
-    // Get execution data within timeframe
-    const { data, error } = await supabase
+    // Get execution logs within timeframe
+    const { data: executionLogs, error: executionError } = await supabase
       .from('execution_logs')
       .select('*')
-      .order('created_at', { ascending: true })
-      .filter('created_at', 'gt', `now() - interval '${timeframe === 'day' ? '1' : timeframe === 'week' ? '7' : '30'} days'`);
+      .eq('user_id', userId)
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', now.toISOString());
     
-    if (error) throw error;
+    if (executionError) throw executionError;
     
-    if (!data || data.length === 0) {
-      return {
-        executionCounts: [],
-        successRates: [],
-        executionTimes: []
-      };
+    // Group by date - type safety for executionLogs
+    const executionsByDate: Record<string, any[]> = {};
+    
+    if (executionLogs && Array.isArray(executionLogs)) {
+      executionLogs.forEach(log => {
+        if (log.created_at) {
+          const date = new Date(log.created_at).toISOString().split('T')[0];
+          executionsByDate[date] = executionsByDate[date] || [];
+          executionsByDate[date].push(log);
+        }
+      });
     }
     
-    // Group data by day for charting
-    const executionsByDay: Record<string, any[]> = {};
+    // Calculate metrics for each date
+    const executionCounts: Array<{ date: string; value: number }> = [];
+    const successRates: Array<{ date: string; value: number }> = [];
+    const executionTimes: Array<{ date: string; value: number }> = [];
     
-    data.forEach(log => {
-      const date = new Date(log.created_at).toISOString().split('T')[0];
-      if (!executionsByDay[date]) {
-        executionsByDay[date] = [];
-      }
-      executionsByDay[date].push(log);
-    });
-    
-    // Format data for charts
-    const executionCounts = Object.entries(executionsByDay).map(([date, logs]) => ({
-      date,
-      value: logs.length
-    }));
-    
-    const successRates = Object.entries(executionsByDay).map(([date, logs]) => {
-      const successfulLogs = logs.filter(log => log.status === 'completed');
-      return {
+    Object.entries(executionsByDate).forEach(([date, logs]) => {
+      // Execution count
+      executionCounts.push({
         date,
-        value: logs.length > 0 ? (successfulLogs.length / logs.length) * 100 : 0
-      };
+        value: logs.length
+      });
+      
+      // Success rate
+      const successfulExecutions = logs.filter(log => log.status === 'completed').length;
+      successRates.push({
+        date,
+        value: logs.length > 0 ? (successfulExecutions / logs.length) * 100 : 0
+      });
+      
+      // Average execution time
+      const times = logs
+        .filter(log => log.duration_seconds)
+        .map(log => log.duration_seconds || 0);
+        
+      executionTimes.push({
+        date,
+        value: times.length > 0 ? times.reduce((sum, time) => sum + time, 0) / times.length : 0
+      });
     });
     
-    const executionTimes = Object.entries(executionsByDay).map(([date, logs]) => {
-      const completedLogs = logs.filter(log => log.status === 'completed' && log.duration_seconds);
-      const avgTime = completedLogs.length > 0
-        ? completedLogs.reduce((sum, log) => sum + (log.duration_seconds || 0), 0) / completedLogs.length
-        : 0;
-      return {
-        date,
-        value: avgTime
-      };
-    });
+    // Sort by date
+    const sortByDate = (a: { date: string }, b: { date: string }) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime();
+      
+    executionCounts.sort(sortByDate);
+    successRates.sort(sortByDate);
+    executionTimes.sort(sortByDate);
     
     return {
       executionCounts,
@@ -245,11 +282,6 @@ export async function getUsagePatterns(timeframe: 'day' | 'week' | 'month' = 'we
     };
   } catch (error) {
     console.error('Error getting usage patterns:', error);
-    toast({
-      title: 'Error loading usage data',
-      description: 'Failed to load usage pattern data.',
-      variant: 'destructive'
-    });
-    return null;
+    throw error;
   }
 }

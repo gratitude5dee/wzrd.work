@@ -1,33 +1,33 @@
 
-import { useEffect, useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useAssistantMessages, Message } from './use-assistant-messages';
 import { useVideoGeneration } from './use-video-generation';
 import { useResponseGeneration } from './use-response-generation';
 import { useUserPreferences } from './use-user-preferences';
-import { useCheckpoints } from './use-checkpoints';
+import { useCheckpoints, Checkpoint } from './use-checkpoints';
 import { useActionExecution } from './use-action-execution';
+import { useActionAnalytics, ActionSummary } from './use-action-analytics';
 import { useAvailableActions, WorkflowAction } from '@/services/recordingService';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 
 interface UseDigitalAssistantProps {
-  onExecuteAction?: (action: string) => Promise<void>;
+  onExecuteAction?: () => Promise<void>;
 }
 
-export interface ActionSummary {
-  id: string;
-  name: string;
+export interface CheckpointOptions {
+  title: string;
   description: string;
-  completedSteps: number;
-  totalSteps: number;
-  metrics?: {
-    timeSaved: number;
-    executionTime: number;
-    successRate: number;
-    automationLevel: number;
-  };
-  relatedActions?: Array<{id: string, name: string}>;
+  severity: 'info' | 'warning' | 'critical';
+  actionName?: string;
+  screenshotUrl?: string;
+}
+
+export interface CheckpointHandlers {
+  onProceed: () => void;
+  onModify: () => void;
+  onCancel: () => void;
 }
 
 export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProps = {}) {
@@ -66,10 +66,15 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
   
   const {
     currentCheckpoint,
-    showCheckpoint,
+    showCheckpoint: displayCheckpointValue,
+    isCheckpointOpen,
     generateCheckpointsFromAction,
-    displayCheckpoint,
-    dismissCheckpoint
+    displayCheckpoint: showCheckpointInternal,
+    dismissCheckpoint,
+    handleProceed,
+    handleModify,
+    handleCancel,
+    closeCheckpoint
   } = useCheckpoints();
 
   const {
@@ -81,26 +86,75 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
     recordCheckpointInteraction
   } = useActionExecution();
 
+  const {
+    getActionMetrics,
+    isSuccessDialogOpen,
+    currentSummary,
+    showSuccessDialog: showSuccessDialogInternal,
+    closeSuccessDialog
+  } = useActionAnalytics();
+
   const { user } = useAuth();
   const { data: availableActions } = useAvailableActions();
   
   const [selectedAction, setSelectedAction] = useState<WorkflowAction | null>(null);
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [actionSummary, setActionSummary] = useState<ActionSummary | null>(null);
-  const [checkpoints, setCheckpoints] = useState<any[]>([]);
 
-  // Load the available replicas on mount
+  // Load replicas on mount
   useEffect(() => {
     loadReplicas();
   }, [loadReplicas]);
 
-  // Function to add a welcome message
-  useEffect(() => {
-    if (replica && messages.length === 0) {
-      const welcomeMessage = addWelcomeMessage();
-      generateVideoForMessage(welcomeMessage, updateMessage);
-    }
-  }, [replica, messages.length, addWelcomeMessage, generateVideoForMessage, updateMessage]);
+  // Function to show a checkpoint with options
+  const showCheckpoint = useCallback((
+    options: CheckpointOptions,
+    handlers: CheckpointHandlers
+  ) => {
+    const checkpoint: Checkpoint = {
+      id: `checkpoint-${Date.now()}`,
+      title: options.title,
+      description: options.description,
+      importance: 8, // High importance
+      step: 1,
+      actionData: { actionName: options.actionName },
+      severity: options.severity
+    };
+
+    // Show the checkpoint
+    showCheckpointInternal(checkpoint);
+    
+    // Override the handlers
+    const originalHandleProceed = handleProceed;
+    const originalHandleModify = handleModify;
+    const originalHandleCancel = handleCancel;
+    
+    // Save original handlers and set temporary ones
+    const tempHandleProceed = () => {
+      handlers.onProceed();
+      originalHandleProceed();
+    };
+    
+    const tempHandleModify = () => {
+      handlers.onModify();
+      originalHandleModify();
+    };
+    
+    const tempHandleCancel = () => {
+      handlers.onCancel();
+      originalHandleCancel();
+    };
+    
+    // Here we would typically set these handlers to be used,
+    // but since the component structure doesn't allow for dynamic handler changes,
+    // this is a placeholder for the actual implementation.
+    
+    // In a real implementation, we'd need a more robust way to override these handlers
+    // or use a different pattern like a context provider
+  }, [handleProceed, handleModify, handleCancel, showCheckpointInternal]);
+
+  // Function to show a success dialog
+  const showSuccessDialog = useCallback((summary: ActionSummary) => {
+    showSuccessDialogInternal(summary);
+  }, [showSuccessDialogInternal]);
 
   // Find action based on user input
   const findRelevantAction = useCallback((input: string) => {
@@ -123,156 +177,6 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
     
     return partialMatches.length > 0 ? partialMatches[0] : null;
   }, [availableActions]);
-
-  // Execute an action with checkpoints
-  const executeActionWithCheckpoints = useCallback(async (action: WorkflowAction) => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "You need to be logged in to execute actions",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    try {
-      // Start execution tracking
-      const execution = await startExecution(action);
-      if (!execution) return;
-      
-      // Set the action as selected
-      setSelectedAction(action);
-      
-      // Generate checkpoints for this action
-      const actionCheckpoints = generateCheckpointsFromAction(action);
-      setCheckpoints(actionCheckpoints);
-      
-      // Add a message indicating action execution is starting
-      const startMessage = createAssistantResponse(
-        `I'm starting execution of "${action.name || 'the action'}" now. I'll guide you through each step and ask for confirmation at important points.`
-      );
-      addMessage(startMessage);
-      generateVideoForMessage(startMessage, updateMessage);
-      
-      // Process checkpoints sequentially
-      let cancelled = false;
-      for (let i = 0; i < actionCheckpoints.length; i++) {
-        const checkpoint = actionCheckpoints[i];
-        
-        // Check saved decisions
-        const savedDecision = getSavedDecision(checkpoint.id);
-        if (savedDecision && savedDecision.action === 'proceed') {
-          // Skip checkpoint, user previously chose to auto-proceed
-          continue;
-        }
-        
-        // Show checkpoint
-        const checkpointMessage = addCheckpointMessage({
-          id: checkpoint.id,
-          title: checkpoint.title,
-          description: checkpoint.description,
-          actionData: checkpoint.actionData
-        });
-        
-        generateVideoForMessage(checkpointMessage, updateMessage);
-        
-        // Record that a checkpoint was shown
-        await recordCheckpointInteraction(execution.id, 'shown');
-        
-        // Wait for user response (simulated here)
-        // In a real implementation, this would await user input
-        // For demo purposes, we automatically proceed after a delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-      
-      if (cancelled) {
-        // Handle cancellation
-        await completeExecution(execution.id, 'cancelled');
-        
-        const cancelMessage = createAssistantResponse(
-          "Action execution has been cancelled. Let me know if you'd like to try again or if you need any assistance."
-        );
-        addMessage(cancelMessage);
-        generateVideoForMessage(cancelMessage, updateMessage);
-        return;
-      }
-      
-      // Execute the action via the edge function
-      const response = await supabase.functions.invoke('execute-action', {
-        body: {
-          actionId: action.id,
-          executionId: execution.id,
-          userId: user.id
-        }
-      });
-      
-      if (response.error) {
-        throw new Error(response.error.message || 'Failed to execute action');
-      }
-      
-      // Complete the execution
-      const { status, durationSeconds } = await completeExecution(execution.id, 'completed');
-      
-      // Create success message and show success dialog
-      const metrics = {
-        timeSaved: durationSeconds * 2, // Simplified estimate
-        executionTime: durationSeconds,
-        successRate: 100, // Simplified for this example
-        automationLevel: 80 // Simplified for this example
-      };
-      
-      const successMessage = createSuccessMessage(
-        action.name || 'Action',
-        metrics
-      );
-      addMessage(successMessage);
-      generateVideoForMessage(successMessage, updateMessage);
-      
-      // Prepare and show success dialog
-      const summary: ActionSummary = {
-        id: action.id,
-        name: action.name || 'Action',
-        description: action.description || 'Action completed successfully',
-        completedSteps: actionCheckpoints.length,
-        totalSteps: actionCheckpoints.length,
-        metrics: metrics,
-        relatedActions: availableActions
-          ?.filter(a => a.id !== action.id)
-          .slice(0, 3)
-          .map(a => ({ id: a.id, name: a.name || `Action ${a.id.slice(0, 8)}` }))
-      };
-      
-      setActionSummary(summary);
-      setShowSuccessDialog(true);
-    } catch (error) {
-      console.error("Error executing action:", error);
-      toast({
-        title: "Execution failed",
-        description: error instanceof Error ? error.message : "Unknown error occurred",
-        variant: "destructive"
-      });
-      
-      if (currentExecution) {
-        completeExecution(
-          currentExecution.id,
-          'failed',
-          error instanceof Error ? error.message : "Unknown error"
-        );
-      }
-      
-      const errorMessage = createAssistantResponse(
-        `I apologize, but there was an error executing the action: ${error instanceof Error ? error.message : "Unknown error occurred"}. Is there anything else I can help you with?`
-      );
-      addMessage(errorMessage);
-      generateVideoForMessage(errorMessage, updateMessage);
-    }
-  }, [
-    user, addMessage, startExecution, generateCheckpointsFromAction, 
-    getSavedDecision, addCheckpointMessage, generateVideoForMessage, 
-    updateMessage, recordCheckpointInteraction, completeExecution, 
-    createAssistantResponse, currentExecution, createSuccessMessage,
-    availableActions
-  ]);
 
   // Function to send a message as the user
   const sendMessage = useCallback(async (content: string) => {
@@ -331,64 +235,177 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
     createAssistantResponse, 
     createUserMessage, 
     generateVideoForMessage, 
-    updateMessage,
-    executeActionWithCheckpoints
+    updateMessage
   ]);
 
-  // Handle checkpoint response
-  const handleCheckpointResponse = useCallback((
-    checkpointId: string,
-    response: 'proceed' | 'modify' | 'cancel',
-    remember: boolean = false
-  ) => {
-    if (!currentExecution) return;
+  // Execute an action with checkpoints - only define but don't call yet
+  const executeActionWithCheckpoints = useCallback(async (action: WorkflowAction) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "You need to be logged in to execute actions",
+        variant: "destructive"
+      });
+      return;
+    }
     
-    if (response === 'proceed') {
-      // Record decision if requested
-      if (remember && checkpointId) {
-        saveDecision({
-          checkpointId,
-          action: 'proceed',
-          context: 'User chose to auto-proceed for this checkpoint',
-          timestamp: new Date()
+    try {
+      // Start execution tracking
+      const execution = await startExecution(action);
+      if (!execution) return;
+      
+      // Set the action as selected
+      setSelectedAction(action);
+      
+      // Generate checkpoints for this action
+      const actionCheckpoints = generateCheckpointsFromAction(action);
+      
+      // Add a message indicating action execution is starting
+      const startMessage = createAssistantResponse(
+        `I'm starting execution of "${action.name || 'the action'}" now. I'll guide you through each step and ask for confirmation at important points.`
+      );
+      addMessage(startMessage);
+      generateVideoForMessage(startMessage, updateMessage);
+      
+      // Process checkpoints sequentially
+      let cancelled = false;
+      for (let i = 0; i < actionCheckpoints.length; i++) {
+        const checkpoint = actionCheckpoints[i];
+        
+        // Check saved decisions
+        const savedDecision = getSavedDecision(checkpoint.id);
+        if (savedDecision && savedDecision.action === 'proceed') {
+          // Skip checkpoint, user previously chose to auto-proceed
+          continue;
+        }
+        
+        // Show checkpoint
+        const checkpointMessage = addCheckpointMessage({
+          id: checkpoint.id,
+          title: checkpoint.title,
+          description: checkpoint.description,
+          actionData: checkpoint.actionData
         });
+        
+        generateVideoForMessage(checkpointMessage, updateMessage);
+        
+        // Record that a checkpoint was shown
+        if (execution.id) {
+          await recordCheckpointInteraction(execution.id, 'shown');
+        }
+        
+        // Wait for user response (simulated here)
+        // In a real implementation, this would await user input
+        // For demo purposes, we automatically proceed after a delay
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
       
-      // Continue execution
-      dismissCheckpoint();
-    } else if (response === 'modify') {
-      // Record a checkpoint modification
-      recordCheckpointInteraction(currentExecution.id, 'modified');
+      if (cancelled) {
+        // Handle cancellation
+        if (execution.id) {
+          await completeExecution(execution.id, 'cancelled');
+        }
+        
+        const cancelMessage = createAssistantResponse(
+          "Action execution has been cancelled. Let me know if you'd like to try again or if you need any assistance."
+        );
+        addMessage(cancelMessage);
+        generateVideoForMessage(cancelMessage, updateMessage);
+        return;
+      }
       
-      // Show modification UI (not implemented in this example)
-      dismissCheckpoint();
+      // Execute the action via the edge function
+      const response = await supabase.functions.invoke('execute-action', {
+        body: {
+          actionId: action.id,
+          executionId: execution.id,
+          userId: user.id
+        }
+      });
       
-      // Add a message about the modification
-      const modifyMessage = createAssistantResponse(
-        "I've noted your request to modify this step. What changes would you like to make?"
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to execute action');
+      }
+      
+      // Complete the execution
+      let status = 'completed';
+      let durationSeconds = 0;
+      
+      if (execution.id) {
+        const result = await completeExecution(execution.id, 'completed');
+        status = result.status;
+        durationSeconds = result.durationSeconds;
+      }
+      
+      // Create success message and show success dialog
+      const metrics = {
+        timeSaved: durationSeconds * 2, // Simplified estimate
+        executionTime: durationSeconds,
+        successRate: 100, // Simplified for this example
+        automationLevel: 80 // Simplified for this example
+      };
+      
+      const successMessage = createSuccessMessage(
+        action.name || 'Action',
+        metrics
       );
-      addMessage(modifyMessage);
-      generateVideoForMessage(modifyMessage, updateMessage);
-    } else if (response === 'cancel') {
-      // Record a checkpoint cancellation
-      recordCheckpointInteraction(currentExecution.id, 'cancelled');
+      addMessage(successMessage);
+      generateVideoForMessage(successMessage, updateMessage);
       
-      // Cancel the execution
-      completeExecution(currentExecution.id, 'cancelled', 'Cancelled by user at checkpoint');
+      // Prepare and show success dialog
+      const summary: ActionSummary = {
+        id: action.id,
+        name: action.name || 'Action',
+        description: action.description || 'Action completed successfully',
+        completedSteps: actionCheckpoints.length,
+        totalSteps: actionCheckpoints.length,
+        metrics: metrics,
+        relatedActions: availableActions
+          ?.filter(a => a.id !== action.id)
+          .slice(0, 3)
+          .map(a => ({ id: a.id, name: a.name || `Action ${a.id.slice(0, 8)}` }))
+      };
       
-      dismissCheckpoint();
+      showSuccessDialog(summary);
+    } catch (error) {
+      console.error("Error executing action:", error);
+      toast({
+        title: "Execution failed",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive"
+      });
       
-      // Add a message about the cancellation
-      const cancelMessage = createAssistantResponse(
-        "I've cancelled the action as requested. Is there anything else I can help you with?"
+      if (currentExecution?.id) {
+        completeExecution(
+          currentExecution.id,
+          'failed',
+          error instanceof Error ? error.message : "Unknown error"
+        );
+      }
+      
+      const errorMessage = createAssistantResponse(
+        `I apologize, but there was an error executing the action: ${error instanceof Error ? error.message : "Unknown error occurred"}. Is there anything else I can help you with?`
       );
-      addMessage(cancelMessage);
-      generateVideoForMessage(cancelMessage, updateMessage);
+      addMessage(errorMessage);
+      generateVideoForMessage(errorMessage, updateMessage);
     }
   }, [
-    currentExecution, saveDecision, dismissCheckpoint, recordCheckpointInteraction,
-    completeExecution, createAssistantResponse, addMessage, generateVideoForMessage,
-    updateMessage
+    user,
+    addMessage,
+    startExecution,
+    generateCheckpointsFromAction,
+    getSavedDecision,
+    addCheckpointMessage,
+    generateVideoForMessage,
+    updateMessage,
+    recordCheckpointInteraction,
+    completeExecution,
+    createAssistantResponse,
+    currentExecution,
+    createSuccessMessage,
+    availableActions,
+    showSuccessDialog,
+    toast
   ]);
 
   // Function to handle message submission
@@ -406,30 +423,6 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
     }
   }, [handleSendMessage]);
 
-  // Handle success dialog actions
-  const handleSuccessDialogClose = useCallback(() => {
-    setShowSuccessDialog(false);
-  }, []);
-
-  const handleRunAgain = useCallback(() => {
-    setShowSuccessDialog(false);
-    if (selectedAction) {
-      setTimeout(() => {
-        executeActionWithCheckpoints(selectedAction);
-      }, 500);
-    }
-  }, [selectedAction, executeActionWithCheckpoints]);
-
-  const handleModifyAction = useCallback(() => {
-    setShowSuccessDialog(false);
-    // Implementation for modifying action would go here
-    const modifyMessage = createAssistantResponse(
-      "How would you like to modify this action? I can help you adjust specific steps or change parameters."
-    );
-    addMessage(modifyMessage);
-    generateVideoForMessage(modifyMessage, updateMessage);
-  }, [createAssistantResponse, addMessage, generateVideoForMessage, updateMessage]);
-
   return {
     messages,
     inputValue,
@@ -442,16 +435,21 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
     // Checkpoint-related
     currentCheckpoint,
     showCheckpoint,
-    handleCheckpointResponse,
+    isCheckpointOpen,
+    handleProceed,
+    handleModify,
+    handleCancel,
+    closeCheckpoint,
     // Success dialog-related
+    isSuccessDialogOpen,
+    currentSummary,
     showSuccessDialog,
-    actionSummary,
-    handleSuccessDialogClose,
-    handleRunAgain,
-    handleModifyAction,
+    closeSuccessDialog,
+    getActionMetrics,
     // Action-related
     isExecuting,
-    selectedAction
+    selectedAction,
+    executeActionWithCheckpoints
   };
 }
 

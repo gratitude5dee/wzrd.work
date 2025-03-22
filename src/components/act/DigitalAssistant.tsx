@@ -1,19 +1,17 @@
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar } from '@/components/ui/avatar';
-import { Bot, SendHorizonal, Play, Pause, User } from 'lucide-react';
+import { Bot, SendHorizonal, Play, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { useDigitalAssistant, Message } from '@/hooks/use-digital-assistant';
 import CheckpointDialog from './checkpoint/CheckpointDialog';
 import SuccessDialog from './success/SuccessDialog';
-import { useCheckpoints } from '@/hooks/use-checkpoints';
-import { useActionAnalytics } from '@/hooks/use-action-analytics';
 import { toast } from '@/hooks/use-toast';
 
 interface DigitalAssistantProps {
@@ -32,7 +30,18 @@ const DigitalAssistant: React.FC<DigitalAssistantProps> = ({ actionId, onExecute
     videoGeneration,
     handleSendMessage,
     handleKeyDown,
-    sendMessage
+    sendMessage,
+    currentCheckpoint,
+    isCheckpointOpen,
+    handleProceed,
+    handleModify,
+    handleCancel,
+    closeCheckpoint,
+    showCheckpoint,
+    currentSummary,
+    isSuccessDialogOpen,
+    showSuccessDialog,
+    closeSuccessDialog
   } = useDigitalAssistant({ 
     onExecuteAction: onExecuteAction ? async () => {
       // When executing an action, first show a checkpoint
@@ -40,36 +49,16 @@ const DigitalAssistant: React.FC<DigitalAssistantProps> = ({ actionId, onExecute
     } : undefined 
   });
 
-  // Checkpoint system integration
-  const {
-    isCheckpointOpen,
-    currentCheckpoint,
-    showCheckpoint,
-    handleProceed,
-    handleModify,
-    handleCancel,
-    closeCheckpoint
-  } = useCheckpoints({ actionId });
-
-  // Success page and analytics integration
-  const {
-    isSuccessDialogOpen,
-    currentSummary,
-    showSuccessDialog,
-    closeSuccessDialog,
-    getActionMetrics
-  } = useActionAnalytics({ actionId });
-
   // Function to show a checkpoint for action execution
   const showActionCheckpoint = () => {
-    showCheckpoint(
-      {
+    // Make sure this function is callable and accepts the right parameters
+    if (typeof showCheckpoint === 'function') {
+      showCheckpoint({
         title: "Confirm Action Execution",
         description: "You're about to execute an automated workflow that will interact with your system. Please confirm you want to proceed.",
         severity: "info",
         actionName: "Document Processing Workflow"
-      },
-      {
+      }, {
         onProceed: async () => {
           toast({
             title: "Action execution started",
@@ -84,23 +73,25 @@ const DigitalAssistant: React.FC<DigitalAssistantProps> = ({ actionId, onExecute
           
           // After some time, simulate a completion and show success dialog
           setTimeout(() => {
-            showSuccessDialog({
-              id: actionId || "default-action",
-              name: "Document Processing Workflow",
-              description: "Successfully processed and categorized all documents in the inbox folder.",
-              completedSteps: 5,
-              totalSteps: 5,
-              metrics: {
-                timeSaved: 120, // 2 minutes saved
-                executionTime: 30, // 30 seconds to execute
-                successRate: 100,
-                automationLevel: 90
-              },
-              relatedActions: [
-                { id: "action-1", name: "Send Processed Documents" },
-                { id: "action-2", name: "Generate Summary Report" }
-              ]
-            });
+            if (typeof showSuccessDialog === 'function') {
+              showSuccessDialog({
+                id: actionId || "default-action",
+                name: "Document Processing Workflow",
+                description: "Successfully processed and categorized all documents in the inbox folder.",
+                completedSteps: 5,
+                totalSteps: 5,
+                metrics: {
+                  timeSaved: 120, // 2 minutes saved
+                  executionTime: 30, // 30 seconds to execute
+                  successRate: 100,
+                  automationLevel: 90
+                },
+                relatedActions: [
+                  { id: "action-1", name: "Send Processed Documents" },
+                  { id: "action-2", name: "Generate Summary Report" }
+                ]
+              });
+            }
           }, 5000);
         },
         onModify: () => {
@@ -114,8 +105,8 @@ const DigitalAssistant: React.FC<DigitalAssistantProps> = ({ actionId, onExecute
             variant: "destructive"
           });
         }
-      }
-    );
+      });
+    }
   };
 
   // Auto-scroll to bottom when messages change
@@ -136,25 +127,31 @@ const DigitalAssistant: React.FC<DigitalAssistantProps> = ({ actionId, onExecute
 
   // Function to handle running an action again from the success dialog
   const handleRunAgain = () => {
-    closeSuccessDialog();
-    showActionCheckpoint();
+    if (typeof closeSuccessDialog === 'function') {
+      closeSuccessDialog();
+      showActionCheckpoint();
+    }
   };
 
   // Function to handle modifying an action from the success dialog
   const handleModifyAction = () => {
-    closeSuccessDialog();
-    // This would open action editing UI
-    sendMessage("I'd like to help you modify this action to better suit your needs. What changes would you like to make?");
+    if (typeof closeSuccessDialog === 'function') {
+      closeSuccessDialog();
+      // This would open action editing UI
+      sendMessage("I'd like to help you modify this action to better suit your needs. What changes would you like to make?");
+    }
   };
 
   // Function to handle sharing results from the success dialog
   const handleShareResults = () => {
-    closeSuccessDialog();
-    // This would open a share dialog
-    toast({
-      title: "Share feature",
-      description: "Sharing functionality would be implemented here",
-    });
+    if (typeof closeSuccessDialog === 'function') {
+      closeSuccessDialog();
+      // This would open a share dialog
+      toast({
+        title: "Share feature",
+        description: "Sharing functionality would be implemented here",
+      });
+    }
   };
 
   return (
@@ -226,7 +223,7 @@ const DigitalAssistant: React.FC<DigitalAssistantProps> = ({ actionId, onExecute
             variant="outline"
             size="icon"
             className="shrink-0"
-            onClick={() => showActionCheckpoint()}
+            onClick={showActionCheckpoint}
             disabled={!actionId}
           >
             <Play className="h-4 w-4" />
@@ -256,7 +253,12 @@ const DigitalAssistant: React.FC<DigitalAssistantProps> = ({ actionId, onExecute
       {currentCheckpoint && (
         <CheckpointDialog
           isOpen={isCheckpointOpen}
-          options={currentCheckpoint}
+          options={{
+            title: currentCheckpoint.title,
+            description: currentCheckpoint.description,
+            severity: currentCheckpoint.severity || 'info',
+            actionName: actionId ? 'Document Processing Workflow' : undefined
+          }}
           onProceed={handleProceed}
           onModify={handleModify}
           onCancel={handleCancel}
