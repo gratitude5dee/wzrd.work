@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
@@ -154,6 +155,7 @@ export function useRecordingStatus(id: string) {
     enabled: !!id,
     refetchInterval: (data) => {
       // Poll every 5 seconds if status is pending or processing
+      // Access the data property of the query result
       if (data && (data.status === 'pending' || data.status === 'processing')) {
         return 5000;
       }
