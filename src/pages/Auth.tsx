@@ -1,28 +1,110 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import Button from '../components/Button';
 import FadeIn from '../components/animations/FadeIn';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { AtSign, Github, Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
-import { cn } from '../lib/utils';
-import { supabase } from '../integrations/supabase/client';
-import { useAuth } from '../contexts/AuthContext';
+import { StytchLoginForm } from '../components/StytchLoginForm';
+import { useStytch } from '../contexts/StytchContext';
+import { Loader2 } from 'lucide-react';
+import { StytchUIClient } from '@stytch/vanilla-js';
 
-type AuthMode = 'signin' | 'signup';
+// Create a direct instance for token authentication
+const createDirectAuthClient = () => {
+  const publicToken = 'public-token-test-1338ae07-6f7b-4f60-a5c6-c050ac7a2161';
+  
+  try {
+    return new StytchUIClient(publicToken, {
+      cookieOptions: {
+        domain: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname,
+      }
+    });
+  } catch (error) {
+    console.error('Error creating direct auth client:', error);
+    return null;
+  }
+};
+
+// Error boundary component to catch rendering errors
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode; fallback: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("Error caught by boundary:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
 
 const Auth: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [name, setName] = useState('');
-  const [authMode, setAuthMode] = useState<AuthMode>('signin');
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { stytch: contextStytch, user } = useStytch();
+  const [directClient] = useState(() => createDirectAuthClient());
+  
+  // Use context client if available, otherwise use direct client
+  const stytch = contextStytch || directClient;
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [renderDebug, setRenderDebug] = useState<string | null>(null);
+  
+  // Add debugging for initialization
+  useEffect(() => {
+    console.log("Auth component mounted");
+    
+    // Debug Stytch context
+    try {
+      console.log("Stytch clients check:", { 
+        contextStytchInitialized: !!contextStytch, 
+        directClientInitialized: !!directClient,
+        userPresent: !!user
+      });
+      
+      // Check if either client has magicLinks methods
+      const client = contextStytch || directClient;
+      if (client) {
+        console.log("Stytch magicLinks available:", !!client.magicLinks);
+        console.log("Stytch magicLinks.email available:", !!client.magicLinks?.email);
+      } else {
+        // Check if this is likely a domain registration issue
+        try {
+          // Log detailed origin information to help debug domain issues
+          console.log("Current origin:", window.location.origin);
+          console.log("Current hostname:", window.location.hostname);
+          console.log("Current protocol:", window.location.protocol);
+          
+          setRenderDebug("Domain may not be registered with Stytch. Check console for details.");
+        } catch (innerErr) {
+          console.error("Error in domain check:", innerErr);
+        }
+        
+        setRenderDebug("No Stytch client is available. Domain may need to be registered in Stytch dashboard.");
+      }
+    } catch (err) {
+      console.error("Error in debug logging:", err);
+      
+      // Check if this is a domain registration error
+      const errorStr = String(err);
+      if (errorStr.includes('not been registered as an allowed domain')) {
+        setRenderDebug("This domain needs to be registered in Stytch dashboard: " + window.location.origin);
+      } else {
+        setRenderDebug("Error in Stytch context: " + (err instanceof Error ? err.message : String(err)));
+      }
+    }
+  }, [contextStytch, directClient, user]);
   
   // Redirect if already authenticated
   useEffect(() => {
@@ -31,71 +113,90 @@ const Auth: React.FC = () => {
     }
   }, [user, navigate]);
   
-  const toggleMode = () => {
-    setAuthMode(authMode === 'signin' ? 'signup' : 'signin');
-    setError(null);
-  };
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setIsLoading(true);
-    
-    try {
-      if (authMode === 'signup') {
-        if (password !== confirmPassword) {
-          setError("Passwords don't match");
-          setIsLoading(false);
-          return;
-        }
-        
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: name,
-            }
-          }
-        });
-        
-        if (error) throw error;
-        
-        if (data.user) {
-          navigate('/dashboard');
-        }
-      } else {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-        
-        if (error) throw error;
-        
-        if (data.user) {
-          navigate('/dashboard');
-        }
-      }
-    } catch (error: any) {
-      setError(error.message || 'An error occurred');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const handleOAuthSignIn = async (provider: 'google' | 'github') => {
-    setError(null);
-    try {
-      await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`
-        }
+  // Function to handle token authentication
+  useEffect(() => {
+    const authenticateToken = async () => {
+      // Check URL for any token parameters
+      const url = new URL(window.location.href);
+      const searchParams = url.searchParams;
+      
+      // Check for Stytch tokens - used for email magic links
+      const token = searchParams.get('token');
+      const tokenType = searchParams.get('stytch_token_type');
+      
+      console.log('URL parameters:', { 
+        token: token ? `${token.substring(0, 5)}...` : null, 
+        tokenType 
       });
-    } catch (error: any) {
-      setError(error.message || 'An error occurred with OAuth sign in');
-    }
-  };
+      
+      if (!stytch) {
+        console.error('No Stytch client available for token authentication');
+        setError('Authentication service is not available');
+        return;
+      }
+      
+      if (token && tokenType === 'magic_links') {
+        setLoading(true);
+        try {
+          console.log('Attempting to authenticate token...');
+          // Authenticate the magic link token
+          const authResult = await stytch.magicLinks.authenticate(token, {
+            session_duration_minutes: 60,
+          });
+          
+          console.log('Token authentication successful:', authResult);
+          
+          // If successful, navigate to dashboard
+          navigate('/dashboard');
+        } catch (err: any) {
+          console.error('Error authenticating token:', err);
+          
+          // Enhanced error logging
+          if (err.error_type) {
+            console.error('Stytch Error Type:', err.error_type);
+          }
+          if (err.error_message) {
+            console.error('Stytch Error Message:', err.error_message);
+          }
+          if (err.status_code) {
+            console.error('Stytch Status Code:', err.status_code);
+          }
+          
+          setError(err.error_message || 'Failed to authenticate. Please try again.');
+          setLoading(false);
+        }
+      } else if (token || tokenType) {
+        console.log('Incomplete token parameters found', { token: !!token, tokenType });
+      }
+    };
+    
+    authenticateToken();
+  }, [navigate, stytch]);
+  
+  if (loading) {
+    return (
+      <Layout glassmorphism withNoise className="flex items-center justify-center">
+        <div className="flex flex-col items-center justify-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-lg">Authenticating...</p>
+        </div>
+      </Layout>
+    );
+  }
+  
+  const LoginFormFallback = () => (
+    <div className="p-6 bg-destructive/10 text-destructive rounded-lg">
+      <h3 className="text-lg font-medium mb-2">Error Loading Login Form</h3>
+      <p>The login form could not be loaded due to an error.</p>
+      <pre className="mt-2 text-sm whitespace-pre-wrap bg-black/5 p-2 rounded">{renderDebug || "No specific error details available."}</pre>
+      <button 
+        className="mt-4 px-4 py-2 bg-primary text-white rounded-md"
+        onClick={() => window.location.reload()}
+      >
+        Refresh Page
+      </button>
+    </div>
+  );
   
   return (
     <Layout glassmorphism withNoise className="flex items-center justify-center">
@@ -104,12 +205,10 @@ const Auth: React.FC = () => {
           <div className="glass rounded-2xl shadow-xl border border-white/10 p-8">
             <div className="mb-6 text-center">
               <h1 className="text-2xl font-bold mb-2">
-                {authMode === 'signin' ? 'Welcome back' : 'Create your account'}
+                Welcome to WZRD
               </h1>
               <p className="text-muted-foreground">
-                {authMode === 'signin' 
-                  ? 'Sign in to continue to WZRD' 
-                  : 'Sign up to start using WZRD'}
+                Sign in or sign up to continue
               </p>
             </div>
             
@@ -119,154 +218,21 @@ const Auth: React.FC = () => {
               </div>
             )}
             
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {authMode === 'signup' && (
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                      <User className="h-4 w-4" />
-                    </div>
-                    <Input
-                      id="name"
-                      placeholder="John Doe"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                </div>
-              )}
-              
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                    <Mail className="h-4 w-4" />
-                  </div>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
+            {renderDebug && (
+              <div className="bg-orange-100 border-l-4 border-orange-500 text-orange-700 p-4 mb-6">
+                <p className="font-bold">Debug Info:</p>
+                <p>{renderDebug}</p>
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                    <Lock className="h-4 w-4" />
-                  </div>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-              
-              {authMode === 'signup' && (
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm Password</Label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                      <Lock className="h-4 w-4" />
-                    </div>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      placeholder="••••••••"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                </div>
-              )}
-              
-              <Button 
-                type="submit"
-                className="w-full" 
-                size="lg"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    {authMode === 'signin' ? 'Signing in...' : 'Creating account...'}
-                  </>
-                ) : (
-                  <>
-                    {authMode === 'signin' ? 'Sign In' : 'Create Account'}
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </>
-                )}
-              </Button>
-              
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border"></div>
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleOAuthSignIn('google')}
-                  className="w-full"
-                >
-                  <AtSign className="w-4 h-4 mr-2" />
-                  Google
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleOAuthSignIn('github')}
-                  className="w-full"
-                >
-                  <Github className="w-4 h-4 mr-2" />
-                  GitHub
-                </Button>
-              </div>
-            </form>
+            )}
+            
+            <ErrorBoundary fallback={<LoginFormFallback />}>
+              <StytchLoginForm />
+            </ErrorBoundary>
             
             <div className="mt-6 text-center text-sm">
-              {authMode === 'signin' ? (
-                <p className="text-muted-foreground">
-                  Don't have an account?{' '}
-                  <button
-                    onClick={toggleMode}
-                    className="text-primary hover:underline font-medium"
-                  >
-                    Sign up
-                  </button>
-                </p>
-              ) : (
-                <p className="text-muted-foreground">
-                  Already have an account?{' '}
-                  <button
-                    onClick={toggleMode}
-                    className="text-primary hover:underline font-medium"
-                  >
-                    Sign in
-                  </button>
-                </p>
-              )}
+              <p className="text-muted-foreground">
+                By continuing, you agree to our Terms of Service and Privacy Policy.
+              </p>
             </div>
           </div>
         </FadeIn>

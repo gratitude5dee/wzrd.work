@@ -1,7 +1,6 @@
-
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useStytchUser } from '@stytch/react';
 import { toast } from '@/hooks/use-toast';
 import { WorkflowAction } from '@/services/recordingService';
 
@@ -25,7 +24,7 @@ export interface ExecutionLog {
 export function useActionExecution() {
   const [currentExecution, setCurrentExecution] = useState<ExecutionLog | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
-  const { user } = useAuth();
+  const { user } = useStytchUser();
 
   // Start execution of an action
   const startExecution = useCallback(async (action: WorkflowAction) => {
@@ -52,7 +51,7 @@ export function useActionExecution() {
         execution_data?: any;
       } = {
         action_id: action.id,
-        user_id: user.id,
+        user_id: user.user_id,
         status: 'started',
         start_time: startTime.toISOString(),
         checkpoints_shown: 0,
@@ -187,14 +186,14 @@ export function useActionExecution() {
         // Use appropriate types for analytics data
         const metrics = [
           {
-            user_id: user.id,
+            user_id: user.user_id,
             action_id: currentExecution?.action_id,
             metric_type: 'execution_time',
             metric_value: durationSeconds,
             context: { execution_id: executionId }
           },
           {
-            user_id: user.id,
+            user_id: user.user_id,
             action_id: currentExecution?.action_id,
             metric_type: 'time_saved',
             metric_value: durationSeconds * 2, // Simplified estimate

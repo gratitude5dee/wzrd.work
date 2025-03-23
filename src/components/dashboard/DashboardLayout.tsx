@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -27,7 +26,7 @@ import {
   Activity,
   Clock
 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useStytch, useStytchUser } from '../../contexts/StytchContext';
 import { Button } from '@/components/ui/button';
 import { 
   DropdownMenu, 
@@ -45,7 +44,8 @@ interface DashboardLayoutProps {
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
-  const { user, signOut } = useAuth();
+  const { user } = useStytchUser();
+  const { signOut } = useStytch();
   const navigate = useNavigate();
   
   const handleSignOut = async () => {
@@ -57,7 +57,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const getUserInitials = () => {
     if (!user) return '??';
     
-    const name = user.user_metadata?.full_name || user.email || '';
+    const email = user.emails?.[0]?.email || '';
+    const name = user.name?.first_name || email || '';
+    
     if (!name) return '??';
     
     if (name.includes('@')) {
@@ -65,12 +67,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       return name.split('@')[0][0].toUpperCase();
     }
     
-    // Otherwise, use first letters of each part of the name
-    return name
-      .split(' ')
-      .map(part => part[0]?.toUpperCase())
-      .join('')
-      .substring(0, 2);
+    // For a name, use the first letter
+    return name[0].toUpperCase();
   };
 
   return (
@@ -210,7 +208,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.user_metadata?.full_name || user?.email} />
+                        <AvatarImage src="" alt={user?.emails?.[0]?.email || 'User'} />
                         <AvatarFallback>{getUserInitials()}</AvatarFallback>
                       </Avatar>
                     </Button>
@@ -218,9 +216,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                   <DropdownMenuContent className="w-56" align="end" forceMount>
                     <DropdownMenuLabel>
                       <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">{user?.user_metadata?.full_name || 'User'}</p>
+                        <p className="text-sm font-medium leading-none">{user?.name?.first_name || 'User'}</p>
                         <p className="text-xs leading-none text-muted-foreground">
-                          {user?.email}
+                          {user?.emails?.[0]?.email}
                         </p>
                       </div>
                     </DropdownMenuLabel>

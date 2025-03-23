@@ -1,7 +1,6 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useStytchUser } from '@stytch/react';
 import { toast } from '@/hooks/use-toast';
 
 export type CheckpointFrequency = 'low' | 'medium' | 'high';
@@ -20,7 +19,7 @@ export function useUserPreferences() {
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const { user } = useAuth();
+  const { user } = useStytchUser();
 
   const fetchPreferences = useCallback(async () => {
     if (!user) {
@@ -35,14 +34,14 @@ export function useUserPreferences() {
       const { data, error } = await supabase
         .from('user_preferences')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user.user_id)
         .single();
 
       if (error) {
         if (error.code === 'PGRST116') {
           // No data found, create default preferences
           const defaultPreferences = {
-            user_id: user.id,
+            user_id: user.user_id,
             checkpoint_frequency: 'medium',
             importance_threshold: 5,
             saved_decisions: {}

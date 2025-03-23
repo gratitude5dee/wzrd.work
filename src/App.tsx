@@ -1,10 +1,10 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { StytchProvider } from './contexts/StytchContext';
+import { useStytch } from './contexts/StytchContext';
 import Index from "./pages/Index";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
@@ -25,9 +25,35 @@ const queryClient = new QueryClient();
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading } = useAuth();
+  const { user, loading: contextLoading } = useStytch();
+  const [loading, setLoading] = React.useState(true);
+  const navigate = useNavigate();
   
-  if (isLoading) {
+  React.useEffect(() => {
+    console.log("ProtectedRoute: checking auth");
+    
+    const checkAuth = async () => {
+      try {
+        if (!contextLoading) {
+          console.log("ProtectedRoute: context loading complete, user:", !!user);
+          setLoading(false);
+          
+          if (!user) {
+            console.log("ProtectedRoute: no user, redirecting to /auth");
+            navigate('/auth', { replace: true });
+          }
+        }
+      } catch (error) {
+        console.error("ProtectedRoute: error checking auth", error);
+        setLoading(false);
+        navigate('/auth', { replace: true });
+      }
+    };
+    
+    checkAuth();
+  }, [contextLoading, user, navigate]);
+  
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -37,7 +63,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return null; // Will be redirected by the useEffect
   }
   
   return <>{children}</>;
@@ -48,7 +74,7 @@ const App = () => {
   return (
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
+        <StytchProvider>
           <TooltipProvider>
             <Toaster />
             <Sonner />
@@ -128,7 +154,7 @@ const App = () => {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </TooltipProvider>
-        </AuthProvider>
+        </StytchProvider>
       </QueryClientProvider>
     </BrowserRouter>
   );

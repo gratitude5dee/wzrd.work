@@ -4,7 +4,7 @@ import DashboardLayout from '../components/dashboard/DashboardLayout';
 import MetricCard from '../components/dashboard/MetricCard';
 import EmptyState from '../components/dashboard/EmptyState';
 import NotificationItem, { NotificationItemProps } from '../components/dashboard/NotificationItem';
-import { useAuth } from '../contexts/AuthContext';
+import { useStytchUser } from '../contexts/StytchContext';
 import FadeIn from '../components/animations/FadeIn';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BrainCog, Fingerprint, Lightbulb, Timer, CheckCheck, Sparkles, Bell } from 'lucide-react';
@@ -13,7 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user } = useStytchUser();
   const [activeTab, setActiveTab] = useState<string>('overview');
   
   // Mock data for a new user
@@ -62,7 +62,7 @@ const Dashboard: React.FC = () => {
     setNotifications(prev => prev.filter(notif => notif.id !== id));
   };
   
-  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'there';
+  const userName = user?.name?.first_name || (user?.emails?.[0]?.email?.split('@')[0]) || 'there';
   
   const handleTabChange = (value: string) => {
     setActiveTab(value);

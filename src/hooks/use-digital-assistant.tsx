@@ -8,7 +8,7 @@ import { useActionExecution } from './use-action-execution';
 import useActionAnalytics, { ActionSummary } from './use-action-analytics';
 import { useAvailableActions, WorkflowAction } from '@/services/recordingService';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useStytchUser } from '@stytch/react';
 import { toast } from '@/hooks/use-toast';
 
 interface UseDigitalAssistantProps {
@@ -85,7 +85,7 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
     recordCheckpointInteraction
   } = useActionExecution();
 
-  const { user } = useAuth();
+  const { user } = useStytchUser();
   const { data: availableActions } = useAvailableActions();
   
   const {
@@ -99,7 +99,7 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
     closeSuccessDialog,
     getActionMetrics,
     getRelatedActions
-  } = useActionAnalytics(user?.id);
+  } = useActionAnalytics(user?.user_id);
   
   const [selectedAction, setSelectedAction] = useState<WorkflowAction | null>(null);
 
@@ -305,7 +305,7 @@ export function useDigitalAssistant({ onExecuteAction }: UseDigitalAssistantProp
         body: {
           actionId: action.id,
           executionId: execution.id,
-          userId: user.id
+          userId: user.user_id
         }
       });
       

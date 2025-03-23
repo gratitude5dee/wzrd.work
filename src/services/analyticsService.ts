@@ -1,6 +1,9 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { WorkflowAction } from './recordingService';
+import { StytchUIClient } from '@stytch/vanilla-js';
+
+// Create a Stytch client instance
+const stytchClient = new StytchUIClient(process.env.NEXT_PUBLIC_STYTCH_PUBLIC_TOKEN || '');
 
 // Define types for analytics metrics
 export interface AnalyticsMetric {
@@ -22,10 +25,16 @@ export async function recordMetric(metric: Omit<AnalyticsMetric, 'id' | 'created
     let updatedMetric = { ...metric };
     
     if (!updatedMetric.user_id) {
-      const { data: userData } = await supabase.auth.getUser();
-      if (userData?.user) {
-        updatedMetric.user_id = userData.user.id;
-      } else {
+      try {
+        // Get current user from Stytch
+        const user = stytchClient.user.getSync();
+        if (user) {
+          updatedMetric.user_id = user.user_id;
+        } else {
+          throw new Error('User not authenticated');
+        }
+      } catch (error) {
+        console.error('Error getting Stytch user:', error);
         throw new Error('User not authenticated');
       }
     }
@@ -126,12 +135,19 @@ export async function getActionMetrics(actionId: string) {
  */
 export async function getUserMetrics() {
   try {
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData?.user) {
+    let userId;
+    try {
+      // Get current user from Stytch
+      const user = stytchClient.user.getSync();
+      if (user) {
+        userId = user.user_id;
+      } else {
+        throw new Error('User not authenticated');
+      }
+    } catch (error) {
+      console.error('Error getting Stytch user:', error);
       throw new Error('User not authenticated');
     }
-    
-    const userId = userData.user.id;
     
     // Get all execution logs
     const { data: executionLogs, error: executionError } = await supabase
@@ -191,12 +207,19 @@ export async function getUserMetrics() {
  */
 export async function getUsagePatterns(timeframe: 'day' | 'week' | 'month' = 'week') {
   try {
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData?.user) {
+    let userId;
+    try {
+      // Get current user from Stytch
+      const user = stytchClient.user.getSync();
+      if (user) {
+        userId = user.user_id;
+      } else {
+        throw new Error('User not authenticated');
+      }
+    } catch (error) {
+      console.error('Error getting Stytch user:', error);
       throw new Error('User not authenticated');
     }
-    
-    const userId = userData.user.id;
     
     // Get date range based on timeframe
     const now = new Date();

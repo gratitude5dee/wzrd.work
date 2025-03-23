@@ -1,7 +1,6 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useStytchUser } from '@stytch/react';
 import { toast } from '@/hooks/use-toast';
 
 export interface Message {
@@ -28,7 +27,7 @@ export function useAssistantMessages() {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [savedDecisions, setSavedDecisions] = useState<Record<string, CheckpointDecision>>({});
-  const { user } = useAuth();
+  const { user } = useStytchUser();
 
   // Load saved decisions from user preferences
   const loadSavedDecisions = useCallback(async () => {
@@ -38,7 +37,7 @@ export function useAssistantMessages() {
       const { data, error } = await supabase
         .from('user_preferences')
         .select('saved_decisions')
-        .eq('user_id', user.id)
+        .eq('user_id', user.user_id)
         .single();
       
       if (error) {
@@ -79,7 +78,7 @@ export function useAssistantMessages() {
       const { error } = await supabase
         .from('user_preferences')
         .upsert({
-          user_id: user.id,
+          user_id: user.user_id,
           saved_decisions: JSON.stringify(newSavedDecisions)
         });
       
